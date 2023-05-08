@@ -4,7 +4,7 @@ use std::str::pattern::Pattern;
 
 use crate::model::node::{Node, Style};
 
-const CONTROL: &str = "#*\n";
+const CONTROL: &str = "*#";
 
 fn drop_n<'a>(input: &'a str, n: usize) -> &'a str {
     if input.len() <= n {
@@ -16,6 +16,23 @@ fn drop_n<'a>(input: &'a str, n: usize) -> &'a str {
 
 fn drop_first<'a>(input: &'a str) -> &'a str {
     drop_n(input, 1)
+}
+
+fn first_char(input: &str) -> Option<char> {
+    input.chars().nth(0)
+}
+
+fn first_non_whitespace(input: &str) -> Option<char> {
+    input.trim_start().chars().nth(0)
+}
+
+
+fn starts_with_any(input: &str, chars: &str) -> bool {
+    if let Some(c) = first_char(input) {
+        chars.contains(c)  
+    } else {
+        false
+    }
 }
 
 fn consume<'a, P>(input: &'a str, condition: P) -> (&'a str, &'a str)
@@ -76,9 +93,14 @@ fn parse_text<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
     let mut node = Node::Text(String::new());
     let mut nodes = Vec::new();
     let mut rest = input;
-    while {
+
+    while !starts_with_any(rest.trim_start(), CONTROL) {
+        if first_char(rest) == Some('\n') {
+            rest = drop_first(rest);
+        }
+
         let text;
-        (rest, text) = consume_until_any(rest, CONTROL);
+        (rest, text) = consume(rest, |c| CONTROL.contains(c) || c == '\n');
 
         // Empty line, new text element.
         if text.trim().is_empty() && !node.is_empty() {
@@ -86,11 +108,7 @@ fn parse_text<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
             node = Node::Text(String::new());
         }
         node.add_text(text);
-
-        let text;
-        (rest, text) = consume_chars(rest, "\n");
-        !text.is_empty()
-    } {}
+    }
 
     if !node.is_empty() {
         nodes.push(node);
@@ -99,22 +117,24 @@ fn parse_text<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
     (rest, nodes)
 }
 
-fn parse_list(input: &str) {
-    
+fn parse_list<'a>(input: &'a str) -> (&'a str, Node) {
+   
 }
 
 fn parse(input: &str, at_line_start: bool) -> Vec<Node> {
     let mut nodes = Vec::new();
     let mut rest = input;
-    while !rest.is_empty() {
-        match rest.chars().nth(0) {
+    loop {
+        match first_non_whitespace(rest) {
             None => break,
             Some('#') => {
                 let heading;
                 (rest, heading) = parse_heading(rest);
                 nodes.push(heading);
             }
-            Some('*') if at_line_start => {}
+            Some('*') if at_line_start => {
+                
+            }
             Some('*') => {
                     let styled;
                 (rest, styled) = parse_style(rest);
