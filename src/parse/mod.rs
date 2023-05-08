@@ -89,36 +89,36 @@ fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {
     }
 }
 
-fn parse_text<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
-    let mut node = Node::Text(String::new());
+fn parse_text<'a>(input: &'a str) -> (&'a str, Node) {
+    let rest = consume_whitespace(input);
+    let (rest, text) = consume(rest, |c| CONTROL.contains(c) || c == '\n');
+    (rest, Node::text(text))
+}
+
+// fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
+
+// }
+
+fn parse_list<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
     let mut nodes = Vec::new();
+
+    let prefix_size = consume_whitespace(input).len() - input.len();
+
     let mut rest = input;
+    while first_non_whitespace(rest) == Some('*') {
+        let (next_rest, whitespace) = consume(input, '*');
+        let n = whitespace.len();
 
-    while !starts_with_any(rest.trim_start(), CONTROL) {
-        if first_char(rest) == Some('\n') {
-            rest = drop_first(rest);
+        if n > prefix_size {
+            let node;
+            (rest, node) = parse_list(rest);
+            nodes.push(Node::Item(node));
+        } else if n < prefix_size {
+            return (rest, nodes);
         }
-
-        let text;
-        (rest, text) = consume(rest, |c| CONTROL.contains(c) || c == '\n');
-
-        // Empty line, new text element.
-        if text.trim().is_empty() && !node.is_empty() {
-            nodes.push(node);
-            node = Node::Text(String::new());
-        }
-        node.add_text(text);
-    }
-
-    if !node.is_empty() {
-        nodes.push(node);
     }
 
     (rest, nodes)
-}
-
-fn parse_list<'a>(input: &'a str) -> (&'a str, Node) {
-   
 }
 
 fn parse(input: &str, at_line_start: bool) -> Vec<Node> {
@@ -133,17 +133,19 @@ fn parse(input: &str, at_line_start: bool) -> Vec<Node> {
                 nodes.push(heading);
             }
             Some('*') if at_line_start => {
-                
+                let list_nodes;
+                (rest, list_nodes) = parse_list(rest);
+                nodes.push(Node::List(list_nodes));
             }
             Some('*') => {
-                    let styled;
+                let styled;
                 (rest, styled) = parse_style(rest);
                 nodes.push(styled);
             }
             _ => {
                 let text;
                 (rest, text) = parse_text(rest);
-                nodes.extend(text)
+                nodes.push(text);
             }
         }
     }
@@ -246,6 +248,19 @@ mod test {
                     ]),
                     Node::Item(vec![Node::text("Another sub item")])
                 ])
+            ])
+        )
+    }
+
+    #[test]
+    fn test_end_list() {
+        assert_eq!(
+            super::parse_document("* list item\ncontinued\n\nended"),
+            Node::Document(vec![
+                Node::List(vec![
+                    Node::Item(vec![Node::text("list item"), Node::text("continued")])
+                ]),
+                Node::text("ended")
             ])
         )
     }
