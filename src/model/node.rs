@@ -8,11 +8,12 @@ pub enum Style {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Node {
-    Style(Style, Vec<Node>),
+    Empty,
     Document(Vec<Node>),
     Heading(Vec<Node>),
     Item(Vec<Node>),
     List(Vec<Node>),
+    Style(Style, Vec<Node>),
     Text(String),
 }
 
@@ -23,6 +24,7 @@ impl Node {
 
     pub fn add_text(&mut self, text: &str) {
         match self {
+            Node::Empty => (),
             Node::Style(_, children)
             | Node::Document(children)
             | Node::Heading(children)
@@ -39,6 +41,7 @@ impl Node {
 
     pub fn is_empty(&self) -> bool {
         match self {
+            Node::Empty => true,
             Node::Style(_, children)
             | Node::Document(children)
             | Node::Heading(children)

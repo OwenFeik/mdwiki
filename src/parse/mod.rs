@@ -35,6 +35,21 @@ fn starts_with_any(input: &str, chars: &str) -> bool {
     }
 }
 
+fn starts_with_empty_line(input: &str) -> bool {
+    let mut line_passed = false;
+    for c in input.chars() {
+        if c == '\n' {
+            if line_passed {
+                return true;
+            }
+            line_passed = true;
+        } else if !c.is_whitespace() {
+            break;
+        }
+    }
+    return false;
+}
+
 fn consume<'a, P>(input: &'a str, condition: P) -> (&'a str, &'a str)
 where
     P: Pattern<'a>,
@@ -52,11 +67,11 @@ fn consume_line<'a>(input: &'a str) -> (&'a str, &'a str) {
 }
 
 fn consume_whitespace<'a>(input: &'a str) -> &'a str {
-    let rest = consume(input, char::is_whitespace).0;
+    let rest = consume(input, |c: char| !c.is_whitespace()).0;
     if rest.is_empty() {
         ""
     } else {
-        &rest[1..]
+        rest
     }
 }
 
@@ -69,92 +84,137 @@ fn consume_chars<'a>(input: &'a str, chars: &str) -> (&'a str, &'a str) {
 }
 
 fn parse_heading<'a>(input: &'a str) -> (&'a str, Node) {
-    let (rest, _) = consume_chars(input, "#");
-    let (rest, text) = consume_line(rest);
-    (rest, Node::Heading(parse(text, false)))
+    let (rest, _) = consume_chars(input.trim_start(), "#");
+    let (rest, text) = consume_line(rest.trim_start());
+    (rest, Node::Heading(parse(text)))
 }
 
 fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {
-    match input {
+    match consume_whitespace(input) {
         input if input.starts_with("**") => {
             let (rest, text) = consume(drop_n(input, 2), "**");
-            let nodes = parse(text, false);
-            (drop_n(rest, 2), Node::Style(Style::Bold, nodes))
+            (drop_n(rest, 2), Node::Style(Style::Bold, parse(text)))
         }
         input if input.starts_with('*') => {
             let (rest, text) = consume(drop_first(input), '*');
-            (drop_first(rest), Node::Style(Style::Italic, parse(text, false)))
+            (drop_first(rest), Node::Style(Style::Italic, parse(text)))
         }
-        _ => ("", Node::Document(vec![])),
+        _ => parse_node(input),
     }
 }
 
 fn parse_text<'a>(input: &'a str) -> (&'a str, Node) {
-    let rest = consume_whitespace(input);
-    let (rest, text) = consume(rest, |c| CONTROL.contains(c) || c == '\n');
-    (rest, Node::text(text))
+    let mut node = Node::Text(String::new());
+    let mut rest = input;
+    while !starts_with_any(rest.trim_start(), CONTROL) {
+        if first_char(rest) == Some('\n') {
+            rest = drop_first(rest);
+        }
+
+        let text;
+        (rest, text) = consume(rest, |c| CONTROL.contains(c) || c == '\n');
+
+        // Empty line, new text element.
+        if text.trim().is_empty() {
+            break;
+        }
+        node.add_text(text);
+    }
+
+    (rest, node)
 }
 
-// fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
+fn list_prefix_size(input: &str) -> Option<usize> {
+    let mut n = 0;
+    for c in input.chars() {
+        match c {
+            '*' => return Some(n),
+            '\n' => n = 0,
+            _ if c.is_whitespace() => n += 1,
+            _ => break
+        }
+    }
+    None
+}
 
-// }
+fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
+    let prefix_size = list_prefix_size(input).expect(
+        &format!("Invalid list item start: {}", &input[..16])
+    );
+    let mut nodes = Vec::new();
+    let mut rest = input;
+    while !starts_with_empty_line(rest) {
+        if first_non_whitespace(rest) == Some('*') {
+            let before = rest.len();
+            rest = consume_whitespace(rest);
+            let n = before - rest.len();
+    
+            // A new list item.        
+            if n == prefix_size {
+                return (rest, Node::Item(nodes))
+            }
+        }
 
-fn parse_list<'a>(input: &'a str) -> (&'a str, Vec<Node>) {
+        while first_char(input) != Some('\n') {
+            let node;
+            (rest, node) = parse_node(rest);
+            nodes.push(node);    
+        }
+    }
+    (rest, Node::Item(nodes))
+}
+
+fn parse_list<'a>(input: &'a str) -> (&'a str, Node) {
     let mut nodes = Vec::new();
 
-    let prefix_size = consume_whitespace(input).len() - input.len();
+    let prefix_size = list_prefix_size(input);
 
     let mut rest = input;
-    while first_non_whitespace(rest) == Some('*') {
-        let (next_rest, whitespace) = consume(input, '*');
-        let n = whitespace.len();
+    while list_prefix_size(rest) == prefix_size {
+        let node;
+        (rest, node) = parse_list_item(rest);
+        nodes.push(node);
+    }
 
-        if n > prefix_size {
-            let node;
-            (rest, node) = parse_list(rest);
-            nodes.push(Node::Item(node));
-        } else if n < prefix_size {
-            return (rest, nodes);
+    (rest, Node::List(nodes))
+}
+
+fn parse_node<'a>(input: &'a str) -> (&'a str, Node) {
+    let mut at_line_start = true;
+    for c in input.chars() {
+        match c {
+            '\n' => break,
+            _ if c.is_whitespace() => (),
+            _ => {
+                at_line_start = false;
+                break;
+            }
         }
     }
 
-    (rest, nodes)
+    match first_non_whitespace(input) {
+        None => ("", Node::Empty),
+        Some('#') => parse_heading(input),
+        Some('*') if at_line_start => parse_list(input),
+        Some('*') => parse_style(input),
+        _ => parse_text(input)
+    }
 }
 
-fn parse(input: &str, at_line_start: bool) -> Vec<Node> {
+fn parse<'a>(input: &'a str) -> Vec<Node> {
     let mut nodes = Vec::new();
     let mut rest = input;
-    loop {
-        match first_non_whitespace(rest) {
-            None => break,
-            Some('#') => {
-                let heading;
-                (rest, heading) = parse_heading(rest);
-                nodes.push(heading);
-            }
-            Some('*') if at_line_start => {
-                let list_nodes;
-                (rest, list_nodes) = parse_list(rest);
-                nodes.push(Node::List(list_nodes));
-            }
-            Some('*') => {
-                let styled;
-                (rest, styled) = parse_style(rest);
-                nodes.push(styled);
-            }
-            _ => {
-                let text;
-                (rest, text) = parse_text(rest);
-                nodes.push(text);
-            }
-        }
+    while !rest.is_empty() {
+        let node;
+        (rest, node) = parse_node(rest);
+        nodes.push(node);
     }
 
     nodes
 }
 
 fn parse_document(input: &str) -> Node {
-    Node::Document(parse(input, true))
+    Node::Document(parse(input))
 }
 
 #[cfg(test)]
