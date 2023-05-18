@@ -4,7 +4,7 @@ use std::str::pattern::Pattern;
 
 use crate::model::node::{Node, Style};
 
-const CONTROL: &str = "*#";
+const CONTROL: &str = "*#[!";
 
 fn add_node(to: &mut Vec<Node>, node: Node) {
     if !node.is_empty() {
@@ -32,10 +32,23 @@ fn first_char(input: &str) -> Option<char> {
     input.chars().nth(0)
 }
 
-fn first_non_whitespace(input: &str) -> Option<char> {
-    input.trim_start().chars().nth(0)
+fn nth_solid(input: &str, n: u32) -> Option<char> {
+    let mut count = 0;
+    for c in input.chars() {
+        if !c.is_whitespace() {
+            count += 1;
+
+            if count >= n {
+                return Some(c);
+            }
+        }
+    }
+    None
 }
 
+fn first_solid(input: &str) -> Option<char> {
+    input.trim_start().chars().nth(0)
+}
 
 fn starts_with_any(input: &str, chars: &str) -> bool {
     if let Some(c) = first_char(input) {
@@ -107,10 +120,33 @@ fn parse_text<'a>(input: &'a str) -> (&'a str, Node) {
     let mut node = Node::Text(String::new());
     let mut rest = input.trim_start();
 
-    while !starts_with_any(rest.trim_start(), CONTROL) && !starts_with_empty_line(rest) && !is_empty(rest) {
+    loop {
         let text;
         (rest, text) = consume(rest.trim_start(), |c| CONTROL.contains(c) || c == '\n');
         node.add_text(text);
+
+        // Control character, parse separately.
+        if starts_with_any(rest.trim_start(), CONTROL) {
+            if first_solid(rest) == Some('!') {
+                if nth_solid(rest, 2) == Some('[') {
+                    break;
+                } else if let Node::Text(text) = &mut node {
+                    text.push('!');
+                    rest = drop_first(rest);
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Empty line, new text node.
+        if starts_with_empty_line(rest) {
+            break;
+        }
+
+        if is_empty(rest) {
+            break;
+        }
     }
 
     (rest, node)
@@ -141,7 +177,7 @@ fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
             add_node(&mut nodes, node);
         }
 
-        if first_non_whitespace(rest) == Some('*') {
+        if first_solid(rest) == Some('*') {
             if list_prefix_size(rest) <= prefix_size {
                 return (rest, Node::Item(nodes))
             }
@@ -173,6 +209,51 @@ fn parse_list<'a>(input: &'a str) -> (&'a str, Node) {
     (rest, Node::List(nodes))
 }
 
+fn parse_link<'a>(input: &'a str) -> (&'a str, Node) {
+    let mut rest = drop_first(input.trim_start());
+    let text;
+    (rest, text) = consume(rest, ']');
+
+    if first_char(rest) == Some(']') {
+        rest = drop_first(rest);
+    }
+
+    if first_solid(rest) == Some('(') {
+        rest = drop_first(rest.trim());
+
+        let url;
+        (rest, url) = consume(rest, ')');
+
+        if first_solid(rest) == Some(')') {
+            rest = drop_first(rest.trim());
+            return (
+                rest,
+                Node::Link(String::from(text.trim()), String::from(url))
+            );
+        }    
+    }
+
+    let consumed = input.len() - rest.len();
+    let mut node;
+    (rest, node) = parse_text(rest);
+
+    if let Node::Text(text) = &mut node {
+        node = Node::Text(
+            format!("{} {}", &input[..consumed].trim(), &text.trim())
+        );
+    }
+    (rest, node)
+}
+
+fn parse_image<'a>(input: &'a str) -> (&'a str, Node) {
+    let result = parse_link(drop_first(input.trim_start()));
+    if let (rest, Node::Link(text, url)) = result {
+        (rest, Node::Image(text, url))
+    } else {
+        result
+    }
+}
+
 fn starts_with_new_line(input: &str) -> bool {
     for c in input.chars() {
         match c {
@@ -185,18 +266,25 @@ fn starts_with_new_line(input: &str) -> bool {
     false
 }
 
-fn parse_node_line_start<'a>(input: &'a str) -> (&'a str, Node) {
+fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
     let mut rest = input;
     while starts_with_new_line(rest) {
         rest = drop_first(consume(rest, '\n').0);
     }
-    
-    match first_non_whitespace(rest) {
+
+    match first_solid(rest) {
         None => ("", Node::Empty),
         Some('#') => parse_heading(rest),
-        Some('*') => parse_list(rest),
+        Some('*') if at_line_start => parse_list(rest),
+        Some('*') => parse_style(rest),
+        Some('[') => parse_link(rest),
+        Some('!') if nth_solid(rest, 2) == Some('[') => parse_image(rest),
         _ => parse_text(rest)
     }
+}
+
+fn parse_node_line_start<'a>(input: &'a str) -> (&'a str, Node) {
+    _parse_node(input, true)
 }
 
 fn parse_node<'a>(input: &'a str) -> (&'a str, Node) {
@@ -212,15 +300,7 @@ fn parse_node<'a>(input: &'a str) -> (&'a str, Node) {
         }
     }
 
-    if at_line_start {
-        parse_node_line_start(input)
-    } else {
-        match first_non_whitespace(input) {
-            None => ("", Node::Empty),
-            Some('*') => parse_style(input),
-            _ => parse_text(input)
-        }
-    }
+    _parse_node(input, at_line_start)
 }
 
 fn parse<'a>(input: &'a str) -> Vec<Node> {
@@ -383,6 +463,35 @@ mod test {
                 ]),
                 Node::Item(vec![Node::text("next item")])
             ])
+        )
+    }
+
+    #[test]
+    fn test_parse_link() {
+        assert_eq!(
+            super::parse_document("[My Website](https://owen.feik.xyz)"),
+            Node::Document(vec![
+                Node::Link(
+                    String::from("My Website"),
+                    String::from("https://owen.feik.xyz")
+                )
+            ])
+        )
+    }
+
+    #[test]
+    fn test_parse_not_link() {
+        assert_eq!(
+            super::parse_node("[Text in brackets] other text").1,
+            Node::text("[Text in brackets] other text")
+        )
+    }
+
+    #[test]
+    fn test_parse_image() {
+        assert_eq!(
+            super::parse_node("![Image caption](https://image.url)").1,
+            Node::image("Image caption", "https://image.url")
         )
     }
 }
