@@ -14,7 +14,6 @@ impl Html {
     }
 
     fn open(&mut self, tag: &'static str) {
-        self.indent(self.stack.len());
         self.content.push('<');
         self.content.push_str(tag);
         self.content.push('>');
@@ -23,7 +22,6 @@ impl Html {
 
     fn close(&mut self) {
         if let Some(tag) = self.stack.pop() {
-            self.indent(self.stack.len());
             self.content.push_str("</");
             self.content.push_str(tag);
             self.content.push('>');
@@ -36,45 +34,66 @@ impl Html {
             self.content.push(' ');
         }
     }
-}
 
-pub fn render_document(node: Node) -> Result<String, String> {
-    if let Node::Document(nodes) = node {
-        let mut html = Html::new();
-        render(&nodes, &mut html)?;
-        Ok(html.content)
-    } else {
-        Err(String::from("Root node not a document."))
+    fn push(&mut self, string: &str) {
+        self.content.push_str(string);
     }
 }
 
-fn render(nodes: &[Node], html: &mut Html) -> Result<(), String> {
-    for node in nodes {
-        match node {
-            Node::Empty => (),
-            Node::Document(children) => {
-                html.open("html");
-                html.open("head");
-                html.close();
-                html.open("body");
-                render(children, html)?;
-                html.close();
-                html.close();
-            },
-            Node::Heading(children) => {
-                html.open("h1");
-                render(children, html)?;
-                html.close();
-            },
-            Node::Image(text, url) => todo!(),
-            Node::Item(_) => todo!(),
-            Node::Link(_, _) => todo!(),
-            Node::List(_) => todo!(),
-            Node::Style(_, _) => todo!(),
-            Node::Text(_) => todo!(),
-        }
+pub fn render_document(node: &Node) -> Result<String, String> {
+    let mut html = Html::new();
+    render(&node, &mut html)?;
+    Ok(html.content)
+}
+
+fn render(node: &Node, html: &mut Html) -> Result<(), String> {
+    match node {
+        Node::Empty => (),
+        Node::Document(children) => {
+            html.open("html");
+            html.open("head");
+            html.close();
+            html.open("body");
+            render_nodes(children, html)?;
+            html.close();
+            html.close();
+        },
+        Node::Heading(children) => {
+            html.open("h1");
+            render_nodes(children, html)?;
+            html.close();
+        },
+        Node::Image(text, url) => todo!(),
+        Node::Item(_) => todo!(),
+        Node::Link(_, _) => todo!(),
+        Node::List(_) => todo!(),
+        Node::Style(_, _) => todo!(),
+        Node::Text(text) => html.push(text),
     }
 
     Ok(())
 }
 
+
+fn render_nodes(nodes: &[Node], html: &mut Html) -> Result<(), String> {
+    for node in nodes {
+        render(node, html)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::model::node::Node;
+
+    #[test]
+    fn test_render_heading() {
+        assert_eq!(
+            &super::render_document(&Node::Document(vec![
+                Node::Heading(vec![Node::text("Hello World")])
+            ])).unwrap(),
+            "<html><head></head><body><h1>Hello World</h1></body></html>"
+        )
+    }
+}
