@@ -1,4 +1,7 @@
-use crate::model::node::Node;
+use crate::model::{Node, Style};
+
+#[cfg(test)]
+mod test;
 
 struct Html {
     content: String,
@@ -81,13 +84,11 @@ impl Html {
     }
 }
 
-pub fn render_document(node: &Node) -> Result<String, String> {
-    let mut html = Html::new();
-    render(&node, &mut html)?;
-    Ok(String::from((&html.content).trim()))
+fn escape(string: &str) -> String {
+    string.replace('"', "&quot;")
 }
 
-fn render(node: &Node, html: &mut Html) -> Result<(), String> {
+fn render(node: &Node, html: &mut Html) {
     match node {
         Node::Empty => (),
         Node::Document(children) => {
@@ -95,13 +96,13 @@ fn render(node: &Node, html: &mut Html) -> Result<(), String> {
             html.openl("head");
             html.closel();
             html.openl("body");
-            render_nodes(children, html)?;
+            render_nodes(children, html);
             html.closel();
             html.closel();
         },
         Node::Heading(children) => {
             html.openl("h1");
-            render_nodes(children, html)?;
+            render_nodes(children, html);
             html.close();
         },
         Node::Image(text, url) => {
@@ -112,77 +113,46 @@ fn render(node: &Node, html: &mut Html) -> Result<(), String> {
         },
         Node::Item(children) => {
             html.openl("li");
-            render_nodes(children, html)?;
+            render_nodes(children, html);
             html.close();
         },
         Node::Link(text, url) => {
             html.start("a");
-            html.attr("href", url);
+            html.attr("href", &escape(url));
             html.finish();
             html.push(text);
             html.close();
         },
         Node::List(children) => {
             html.openl("ul");
-            render_nodes(children, html)?;
+            render_nodes(children, html);
             html.closel();
         },
-        Node::Style(_, _) => todo!(),
+        Node::Style(style, children) => {
+            let tag = match style {
+                Style::Bold => "b",
+                Style::Italic => "i",
+                Style::Strikethrough => "s",
+                Style::Underline => "u",
+            };
+
+            html.open(tag);
+            render_nodes(children, html);
+            html.close();
+        },
         Node::Text(text) => html.push(text),
     }
-
-    Ok(())
 }
 
 
-fn render_nodes(nodes: &[Node], html: &mut Html) -> Result<(), String> {
+fn render_nodes(nodes: &[Node], html: &mut Html) {
     for node in nodes {
-        render(node, html)?;
+        render(node, html);
     }
-
-    Ok(())
 }
 
-#[cfg(test)]
-mod test {
-    use crate::model::node::Node;
-
-    #[test]
-    fn test_render_heading() {
-        assert_eq!(
-            &super::render_document(&Node::Document(vec![
-                Node::Heading(vec![Node::text("Hello World")])
-            ])).unwrap(),
-            concat!(
-                "<html>\n",
-                " <head>\n",
-                " </head>\n",
-                " <body>\n",
-                "  <h1>Hello World</h1>\n",
-                " </body>\n",
-                "</html>"
-            )
-        );
-    }
-
-    #[test]
-    fn test_render_links() {
-        assert_eq!(
-            &super::render_document(&Node::List(vec![
-                Node::Item(vec![
-                    Node::text("Click here:"),
-                    Node::link("Website", "https://owen.feik.xyz")
-                ]),
-                Node::Item(vec![
-                    Node::image("image alt", "https://image.url")
-                ])
-            ])).unwrap(),
-            concat!(
-                "<ul>\n",
-                " <li>Click here:<a href=\"https://owen.feik.xyz\">Website</a></li>\n",
-                " <li><img src=\"https://image.url\" alt=\"image alt\"></li>\n",
-                "</ul>"
-            )
-        );
-    }
+pub fn render_document(node: &Node) -> String {
+    let mut html = Html::new();
+    render(&node, &mut html);
+    String::from((&html.content).trim())
 }
