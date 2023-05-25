@@ -52,15 +52,33 @@ impl Html {
         }
     }
 
-    fn closel(&mut self) {
+    fn lclose(&mut self) {
         if !self.stack.is_empty() {
+            self.trim_end();
             self.indent(self.stack.len() - 1);
             self.close();
         }
     }
 
-    fn indent(&mut self, n: usize) {
+    fn closel(&mut self) {
+        if !self.stack.is_empty() {
+            self.trim_end();
+            self.close();
+            self.indent(self.stack.len());
+        }
+    }
+
+    fn trim_end(&mut self) {
+        self.content.truncate(self.content.trim_end().len());
+    }
+
+    fn nl(&mut self) {
+        self.trim_end();
         self.content.push('\n');
+    }
+
+    fn indent(&mut self, n: usize) {
+        self.nl();
         for _ in 0..n {
             self.content.push(' ');
         }
@@ -82,6 +100,12 @@ impl Html {
     fn space(&mut self) {
         self.content.push(' ');
     }
+
+    fn space_if_needed(&mut self) {
+        if self.content.ends_with(|c: char| !c.is_whitespace() && c != '>') {
+            self.space();
+        }
+    }
 }
 
 fn escape(string: &str) -> String {
@@ -94,18 +118,19 @@ fn render(node: &Node, html: &mut Html) {
         Node::Document(children) => {
             html.open("html");
             html.openl("head");
-            html.closel();
+            html.lclose();
             html.openl("body");
             render_nodes(children, html);
-            html.closel();
-            html.closel();
+            html.lclose();
+            html.lclose();
         },
         Node::Heading(children) => {
             html.openl("h1");
             render_nodes(children, html);
-            html.close();
+            html.closel();
         },
         Node::Image(text, url) => {
+            html.space_if_needed();
             html.singleton("img");
             html.attr("src", url);
             html.attr("alt", text);
@@ -114,19 +139,22 @@ fn render(node: &Node, html: &mut Html) {
         Node::Item(children) => {
             html.openl("li");
             render_nodes(children, html);
+            html.trim_end();
             html.close();
         },
         Node::Link(text, url) => {
+            html.space_if_needed();
             html.start("a");
             html.attr("href", &escape(url));
             html.finish();
             html.push(text);
             html.close();
+            html.space();
         },
         Node::List(children) => {
             html.openl("ul");
             render_nodes(children, html);
-            html.closel();
+            html.lclose();
         },
         Node::Style(style, children) => {
             let tag = match style {
@@ -136,11 +164,17 @@ fn render(node: &Node, html: &mut Html) {
                 Style::Underline => "u",
             };
 
+            html.space_if_needed();
             html.open(tag);
             render_nodes(children, html);
+            html.trim_end();
             html.close();
+            html.space();
         },
-        Node::Text(text) => html.push(text),
+        Node::Text(text) => {
+            html.space_if_needed();
+            html.push(text);
+        }
     }
 }
 

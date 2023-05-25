@@ -4,6 +4,9 @@ mod model;
 mod parse;
 mod render;
 
+#[cfg(test)]
+mod test;
+
 fn main() {
     let file = std::env::args().nth(1).expect(
         "Usage: mdwiki file.md"

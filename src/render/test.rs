@@ -32,7 +32,7 @@ fn test_render_links() {
         ])),
         concat!(
             "<ul>\n",
-            " <li>Click here:<a href=\"https://owen.feik.xyz\">Website</a></li>\n",
+            " <li>Click here: <a href=\"https://owen.feik.xyz\">Website</a></li>\n",
             " <li><img src=\"https://image.url\" alt=\"image alt\"></li>\n",
             "</ul>"
         )
