@@ -46,6 +46,7 @@ impl Html {
 
     fn close(&mut self) {
         if let Some(tag) = self.stack.pop() {
+            self.trim_spaces();
             self.content.push_str("</");
             self.content.push_str(tag);
             self.content.push('>');
@@ -55,16 +56,29 @@ impl Html {
     fn lclose(&mut self) {
         if !self.stack.is_empty() {
             self.trim_end();
-            self.indent(self.stack.len() - 1);
+            self.indent(self.stack.len().saturating_sub(1));
             self.close();
+        }
+    }
+
+    fn lclosel(&mut self) {
+        if !self.stack.is_empty() {
+            self.lclose();
+            self.indent(self.stack.len().saturating_sub(1));
         }
     }
 
     fn closel(&mut self) {
         if !self.stack.is_empty() {
-            self.trim_end();
             self.close();
             self.indent(self.stack.len());
+        }
+    }
+
+    fn trim_spaces(&mut self) {
+        let spaces_trimmed = self.content.trim_end_matches(' ');
+        if !spaces_trimmed.ends_with('\n') {
+            self.content.truncate(spaces_trimmed.len());
         }
     }
 
@@ -139,7 +153,6 @@ fn render(node: &Node, html: &mut Html) {
         Node::Item(children) => {
             html.openl("li");
             render_nodes(children, html);
-            html.trim_end();
             html.close();
         },
         Node::Link(text, url) => {
@@ -154,7 +167,7 @@ fn render(node: &Node, html: &mut Html) {
         Node::List(children) => {
             html.openl("ul");
             render_nodes(children, html);
-            html.lclose();
+            html.lclosel();
         },
         Node::Style(style, children) => {
             let tag = match style {
