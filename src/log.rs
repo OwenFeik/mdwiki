@@ -4,7 +4,7 @@ enum Level {
     Debug,
     Info,
     Warning,
-    Error
+    Error,
 }
 
 impl Display for Level {
@@ -13,9 +13,9 @@ impl Display for Level {
             Self::Debug => "DEBUG",
             Self::Info => "INFO",
             Self::Warning => "WARN",
-            Self::Error => "ERROR"
+            Self::Error => "ERROR",
         };
-        
+
         f.write_str(&format!("[{: <5}]", string))
     }
 }

@@ -5,7 +5,7 @@ mod test;
 
 struct Html {
     content: String,
-    stack: Vec<&'static str>
+    stack: Vec<&'static str>,
 }
 
 impl Html {
@@ -15,7 +15,7 @@ impl Html {
             stack: Vec::new(),
         }
     }
-    
+
     fn _start(&mut self, tag: &str) {
         self.content.push('<');
         self.content.push_str(tag);
@@ -77,8 +77,9 @@ impl Html {
 
     fn trim_spaces(&mut self) {
         let spaces_trimmed = self.content.trim_end_matches(' ');
+        let len = spaces_trimmed.len();
         if !spaces_trimmed.ends_with('\n') {
-            self.content.truncate(spaces_trimmed.len());
+            self.content.truncate(len);
         }
     }
 
@@ -116,7 +117,10 @@ impl Html {
     }
 
     fn space_if_needed(&mut self) {
-        if self.content.ends_with(|c: char| !c.is_whitespace() && c != '>') {
+        if self
+            .content
+            .ends_with(|c: char| !c.is_whitespace() && c != '>')
+        {
             self.space();
         }
     }
@@ -129,6 +133,8 @@ fn escape(string: &str) -> String {
 fn render(node: &Node, html: &mut Html) {
     match node {
         Node::Empty => (),
+        Node::Code(code) => {}
+        Node::Codeblock(lang, code) => {}
         Node::Document(children) => {
             html.open("html");
             html.openl("head");
@@ -137,24 +143,24 @@ fn render(node: &Node, html: &mut Html) {
             render_nodes(children, html);
             html.lclose();
             html.lclose();
-        },
+        }
         Node::Heading(children) => {
             html.openl("h1");
             render_nodes(children, html);
             html.closel();
-        },
+        }
         Node::Image(text, url) => {
             html.space_if_needed();
             html.singleton("img");
             html.attr("src", url);
             html.attr("alt", text);
             html.finish();
-        },
+        }
         Node::Item(children) => {
             html.openl("li");
             render_nodes(children, html);
             html.close();
-        },
+        }
         Node::Link(text, url) => {
             html.space_if_needed();
             html.start("a");
@@ -163,18 +169,17 @@ fn render(node: &Node, html: &mut Html) {
             html.push(text);
             html.close();
             html.space();
-        },
+        }
         Node::List(children) => {
             html.openl("ul");
             render_nodes(children, html);
             html.lclosel();
-        },
+        }
         Node::Style(style, children) => {
             let tag = match style {
                 Style::Bold => "b",
                 Style::Italic => "i",
                 Style::Strikethrough => "s",
-                Style::Underline => "u",
             };
 
             html.space_if_needed();
@@ -183,14 +188,13 @@ fn render(node: &Node, html: &mut Html) {
             html.trim_end();
             html.close();
             html.space();
-        },
+        }
         Node::Text(text) => {
             html.space_if_needed();
             html.push(text);
         }
     }
 }
-
 
 fn render_nodes(nodes: &[Node], html: &mut Html) {
     for node in nodes {

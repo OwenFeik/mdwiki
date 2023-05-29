@@ -94,9 +94,7 @@ fn test_end_list() {
     assert_eq!(
         super::parse_document("* list item\ncontinued\n\nended"),
         Node::Document(vec![
-            Node::List(vec![
-                Node::Item(vec![Node::text("list item continued")])
-            ]),
+            Node::List(vec![Node::Item(vec![Node::text("list item continued")])]),
             Node::text("ended")
         ])
     )
@@ -116,9 +114,7 @@ fn test_parse_list_sub_item() {
         super::parse_list_item("* list item\n  * sub item").1,
         Node::Item(vec![
             Node::text("list item"),
-            Node::List(vec![
-                Node::Item(vec![Node::text("sub item")])
-            ])
+            Node::List(vec![Node::Item(vec![Node::text("sub item")])])
         ])
     )
 }
@@ -130,9 +126,7 @@ fn test_parse_list() {
         Node::List(vec![
             Node::Item(vec![
                 Node::text("list item"),
-                Node::List(vec![
-                    Node::Item(vec![Node::text("sub item")])
-                ])
+                Node::List(vec![Node::Item(vec![Node::text("sub item")])])
             ]),
             Node::Item(vec![Node::text("next item")])
         ])
@@ -143,12 +137,10 @@ fn test_parse_list() {
 fn test_parse_link() {
     assert_eq!(
         super::parse_document("[My Website](https://owen.feik.xyz)"),
-        Node::Document(vec![
-            Node::Link(
-                String::from("My Website"),
-                String::from("https://owen.feik.xyz")
-            )
-        ])
+        Node::Document(vec![Node::Link(
+            String::from("My Website"),
+            String::from("https://owen.feik.xyz")
+        )])
     )
 }
 
@@ -165,5 +157,33 @@ fn test_parse_image() {
     assert_eq!(
         super::parse_node("![Image caption](https://image.url)").1,
         Node::image("Image caption", "https://image.url")
+    )
+}
+
+#[test]
+fn test_strikethrough() {
+    assert_eq!(
+        super::parse_node("~struckthrough~").1,
+        Node::Style(Style::Strikethrough, vec![Node::text("struckthrough")])
+    )
+}
+
+#[test]
+fn test_code() {
+    assert_eq!(
+        super::parse_document(concat!(
+            "# Title With `Inline Code`\n",
+            "```lang\ncode block line 1\nline 2\n\nline 3```\n"
+        )),
+        Node::Document(vec![
+            Node::Heading(vec![
+                Node::text("Title With"),
+                Node::code("Inline Code")
+            ]),
+            Node::Codeblock(
+                Some(String::from("lang")),
+                String::from("lang\ncode block line 1\nline 2\n\nline 3")
+            )
+        ])
     )
 }

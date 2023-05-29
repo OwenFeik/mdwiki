@@ -7,7 +7,7 @@ use crate::model::{Node, Style};
 #[cfg(test)]
 mod test;
 
-const CONTROL: &str = "*#[!";
+const CONTROL: &str = "*#[!~";
 
 fn add_node(to: &mut Vec<Node>, node: Node) {
     if !node.is_empty() {
@@ -55,7 +55,7 @@ fn first_solid(input: &str) -> Option<char> {
 
 fn starts_with_any(input: &str, chars: &str) -> bool {
     if let Some(c) = first_char(input) {
-        chars.contains(c)  
+        chars.contains(c)
     } else {
         false
     }
@@ -115,6 +115,10 @@ fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {
             let (rest, text) = consume(drop_first(input), '*');
             (drop_first(rest), Node::Style(Style::Italic, parse(text)))
         }
+        input if input.starts_with('~') => {
+            let (rest, text) = consume(drop_first(input), '~');
+            (drop_first(rest), Node::Style(Style::Strikethrough, parse(text)))
+        }
         _ => parse_node(input),
     }
 }
@@ -162,7 +166,7 @@ fn list_prefix_size(input: &str) -> Option<usize> {
             '*' => return Some(n),
             '\n' => n = 0,
             _ if c.is_whitespace() => n += 1,
-            _ => break
+            _ => break,
         }
     }
     None
@@ -173,7 +177,7 @@ fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
     let mut nodes = Vec::new();
     let mut rest = drop_first(consume(input, '*').0);
 
-    while !is_empty(rest) && !starts_with_empty_line(rest)  {
+    while !is_empty(rest) && !starts_with_empty_line(rest) {
         while !is_empty(rest) && first_char(rest) != Some('\n') {
             let node;
             (rest, node) = parse_node(rest);
@@ -182,7 +186,7 @@ fn parse_list_item<'a>(input: &'a str) -> (&'a str, Node) {
 
         if first_solid(rest) == Some('*') {
             if list_prefix_size(rest) <= prefix_size {
-                return (rest, Node::Item(nodes))
+                return (rest, Node::Item(nodes));
             }
         }
 
@@ -230,7 +234,7 @@ fn parse_link<'a>(input: &'a str) -> (&'a str, Node) {
         if first_solid(rest) == Some(')') {
             rest = drop_first(rest.trim());
             return (rest, Node::link(text.trim(), url));
-        }    
+        }
     }
 
     let consumed = input.len() - rest.len();
@@ -238,9 +242,7 @@ fn parse_link<'a>(input: &'a str) -> (&'a str, Node) {
     (rest, node) = parse_text(rest);
 
     if let Node::Text(text) = &mut node {
-        node = Node::Text(
-            format!("{} {}", &input[..consumed].trim(), &text.trim())
-        );
+        node = Node::Text(format!("{} {}", &input[..consumed].trim(), &text.trim()));
     }
     (rest, node)
 }
@@ -259,7 +261,7 @@ fn starts_with_new_line(input: &str) -> bool {
         match c {
             '\n' => return true,
             _ if c.is_whitespace() => (),
-            _ => return false
+            _ => return false,
         }
     }
 
@@ -276,10 +278,10 @@ fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
         None => ("", Node::Empty),
         Some('#') => parse_heading(rest),
         Some('*') if at_line_start => parse_list(rest),
-        Some('*') => parse_style(rest),
+        Some('*') | Some('~') => parse_style(rest),
         Some('[') => parse_link(rest),
         Some('!') if nth_solid(rest, 2) == Some('[') => parse_image(rest),
-        _ => parse_text(rest)
+        _ => parse_text(rest),
     }
 }
 
@@ -307,7 +309,7 @@ fn parse<'a>(input: &'a str) -> Vec<Node> {
     let mut nodes = Vec::new();
     let (mut rest, node) = parse_node_line_start(input);
     add_node(&mut nodes, node);
-    
+
     while !is_empty(rest) {
         let node;
         (rest, node) = parse_node(rest);

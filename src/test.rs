@@ -1,6 +1,5 @@
 use crate::{parse::parse_document, render::render_document};
 
-
 const MD: &str = r#"
 # Test Markdown File
 

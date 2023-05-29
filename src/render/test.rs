@@ -3,9 +3,9 @@ use crate::model::{Node, Style};
 #[test]
 fn test_render_heading() {
     assert_eq!(
-        &super::render_document(&Node::Document(vec![
-            Node::Heading(vec![Node::text("Hello World")])
-        ])),
+        &super::render_document(&Node::Document(vec![Node::Heading(vec![Node::text(
+            "Hello World"
+        )])])),
         concat!(
             "<html>\n",
             " <head>\n",
@@ -15,7 +15,7 @@ fn test_render_heading() {
             " </body>\n",
             "</html>"
         )
-    );
+    )
 }
 
 #[test]
@@ -26,9 +26,7 @@ fn test_render_links() {
                 Node::text("Click here:"),
                 Node::link("Website", "https://owen.feik.xyz")
             ]),
-            Node::Item(vec![
-                Node::image("image alt", "https://image.url")
-            ])
+            Node::Item(vec![Node::image("image alt", "https://image.url")])
         ])),
         concat!(
             "<ul>\n",
@@ -36,21 +34,18 @@ fn test_render_links() {
             " <li><img src=\"https://image.url\" alt=\"image alt\"></li>\n",
             "</ul>"
         )
-    );
+    )
 }
 
 #[test]
 fn test_render_style() {
     assert_eq!(
         &super::render_document(&Node::Style(
-            Style::Italic, vec![
-                Node::Style(Style::Bold, vec![Node::text("italic bold")])
-            ])
-        ),
-        concat!(
-            "<i><b>italic bold</b></i>"
-        )
-    );
+            Style::Italic,
+            vec![Node::Style(Style::Bold, vec![Node::text("italic bold")])]
+        )),
+        concat!("<i><b>italic bold</b></i>")
+    )
 }
 
 #[test]
@@ -58,5 +53,5 @@ fn test_escaping() {
     assert_eq!(
         super::escape("\"hello world\""),
         String::from("&quot;hello world&quot;")
-    );
+    )
 }
