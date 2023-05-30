@@ -7,7 +7,7 @@ use crate::model::{Node, Style};
 #[cfg(test)]
 mod test;
 
-const CONTROL: &str = "*#[!~";
+const CONTROL: &str = "*#[!~`";
 
 fn add_node(to: &mut Vec<Node>, node: Node) {
     if !node.is_empty() {
@@ -256,6 +256,31 @@ fn parse_image<'a>(input: &'a str) -> (&'a str, Node) {
     }
 }
 
+fn parse_code<'a>(input: &'a str) -> (&'a str, Node) {
+    if input.starts_with("```") {
+        let (rest, code) = consume(drop_n(input, 3), "```");
+        let code = code.trim();
+        if code.contains('\n') {
+            let (rest_code, lang) = consume(
+                code,
+                |c: char| !c.is_alphanumeric()
+            );
+
+            if !rest_code.is_empty() {
+                return (rest, Node::Codeblock(
+                    Some(String::from(lang)),
+                    String::from(rest_code.trim())
+                ));
+            }
+        }
+
+        (rest, Node::Codeblock(None, String::from(code)))
+    } else {
+        let (rest, code) = consume(drop_first(input), '`');
+        (rest, Node::code(code))
+    }
+}
+
 fn starts_with_new_line(input: &str) -> bool {
     for c in input.chars() {
         match c {
@@ -276,6 +301,7 @@ fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
 
     match first_solid(rest) {
         None => ("", Node::Empty),
+        Some('`') => parse_code(rest),
         Some('#') => parse_heading(rest),
         Some('*') if at_line_start => parse_list(rest),
         Some('*') | Some('~') => parse_style(rest),

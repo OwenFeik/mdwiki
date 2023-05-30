@@ -182,7 +182,7 @@ fn test_code() {
             ]),
             Node::Codeblock(
                 Some(String::from("lang")),
-                String::from("lang\ncode block line 1\nline 2\n\nline 3")
+                String::from("code block line 1\nline 2\n\nline 3")
             )
         ])
     )
