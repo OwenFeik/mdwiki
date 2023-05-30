@@ -117,7 +117,10 @@ fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {
         }
         input if input.starts_with('~') => {
             let (rest, text) = consume(drop_first(input), '~');
-            (drop_first(rest), Node::Style(Style::Strikethrough, parse(text)))
+            (
+                drop_first(rest),
+                Node::Style(Style::Strikethrough, parse(text)),
+            )
         }
         _ => parse_node(input),
     }
@@ -261,16 +264,13 @@ fn parse_code<'a>(input: &'a str) -> (&'a str, Node) {
         let (rest, code) = consume(drop_n(input, 3), "```");
         let code = code.trim();
         if code.contains('\n') {
-            let (rest_code, lang) = consume(
-                code,
-                |c: char| !c.is_alphanumeric()
-            );
+            let (rest_code, lang) = consume(code, |c: char| !c.is_alphanumeric());
 
             if !rest_code.is_empty() {
-                return (rest, Node::Codeblock(
-                    Some(String::from(lang)),
-                    String::from(rest_code.trim())
-                ));
+                return (
+                    rest,
+                    Node::Codeblock(Some(String::from(lang)), String::from(rest_code.trim())),
+                );
             }
         }
 

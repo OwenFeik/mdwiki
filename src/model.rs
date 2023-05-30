@@ -45,9 +45,7 @@ impl Node {
             | Node::Heading(children)
             | Node::Item(children)
             | Node::List(children) => children.push(Node::text(text)),
-            Node::Code(string)
-            | Node::Codeblock(_, string)
-            | Node::Text(string) => {
+            Node::Code(string) | Node::Codeblock(_, string) | Node::Text(string) => {
                 if !string.is_empty() {
                     string.push(' ');
                 }
@@ -66,9 +64,9 @@ impl Node {
             | Node::Heading(children)
             | Node::Item(children)
             | Node::List(children) => !children.iter().any(|n| !n.is_empty()),
-            Node::Code(string)
-            | Node::Codeblock(_, string)
-            | Node::Text(string) => string.trim().is_empty(),
+            Node::Code(string) | Node::Codeblock(_, string) | Node::Text(string) => {
+                string.trim().is_empty()
+            }
         }
     }
 }

@@ -1,7 +1,9 @@
-#![feature(let_else)]
 #![feature(pattern)]
 
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 mod log;
 mod model;
@@ -10,6 +12,9 @@ mod render;
 
 #[cfg(test)]
 mod test;
+
+const INPUT_EXT: &str = "md";
+const OUTPUT_EXT: &str = "html";
 
 fn process_file(file: &Path, outdir: &Path) {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
@@ -34,7 +39,7 @@ fn process_file(file: &Path, outdir: &Path) {
         ));
     }
 
-    let output = outdir.join(name.replace(".md", ".html"));
+    let output = outdir.join(name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}")));
     if std::fs::write(&output, html).is_ok() {
         log::info(&format!(
             "Rendered {} to {}",
@@ -67,7 +72,12 @@ fn process_directory(indir: &Path, outdir: &Path) {
                         &outdir.join(entry.file_name()),
                     );
                 } else if filetype.is_file() {
-                    process_file(&entry.path(), outdir);
+                    let path = entry.path();
+                    if let Some(Some(ext)) = path.extension().map(OsStr::to_str) {
+                        if ext == INPUT_EXT {
+                            process_file(&entry.path(), outdir);
+                        }
+                    }
                 }
             }
         }
@@ -97,9 +107,16 @@ fn main() {
     } else if metadata.is_dir() {
         let path = PathBuf::from(arg);
         let indir = path.clone();
-        let Some(outdir) = &indir.parent().map(|p| p.join("build")) else {
-            fail("Couldn't choose an output directory for files.");
+
+        let Some(Some(dirname)) = indir.file_name().map(OsStr::to_str) else {
+            fail("Couldn't find filename of input directory.");
         };
-        process_directory(&indir, outdir);
+
+        if let Some(parent) = indir.parent() {
+            let outdir = parent.join(format!("{dirname}-{OUTPUT_EXT}"));
+            process_directory(&indir, &outdir);
+        } else {
+            fail("Couldn't choose an output directory for files.");
+        }
     }
 }

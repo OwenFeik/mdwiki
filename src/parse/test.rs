@@ -176,10 +176,7 @@ fn test_code() {
             "```lang\ncode block line 1\nline 2\n\nline 3```\n"
         )),
         Node::Document(vec![
-            Node::Heading(vec![
-                Node::text("Title With"),
-                Node::code("Inline Code")
-            ]),
+            Node::Heading(vec![Node::text("Title With"), Node::code("Inline Code")]),
             Node::Codeblock(
                 Some(String::from("lang")),
                 String::from("code block line 1\nline 2\n\nline 3")
