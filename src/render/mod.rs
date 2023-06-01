@@ -3,9 +3,11 @@ use crate::model::{Node, Style};
 #[cfg(test)]
 mod test;
 
+const TABSIZE: usize = 2;
+
 struct Html {
     content: String,
-    stack: Vec<&'static str>,
+    stack: Vec<String>,
 }
 
 impl Html {
@@ -21,12 +23,12 @@ impl Html {
         self.content.push_str(tag);
     }
 
-    fn start(&mut self, tag: &'static str) {
+    fn start(&mut self, tag: &str) {
         self._start(tag);
-        self.stack.push(tag);
+        self.stack.push(String::from(tag));
     }
 
-    fn open(&mut self, tag: &'static str) {
+    fn open(&mut self, tag: &str) {
         self.start(tag);
         self.finish();
     }
@@ -35,9 +37,14 @@ impl Html {
         self.content.push('>');
     }
 
-    fn openl(&mut self, tag: &'static str) {
+    fn lopen(&mut self, tag: &str) {
         self.indent(self.stack.len());
         self.open(tag);
+    }
+
+    fn lopenl(&mut self, tag: &str) {
+        self.lopen(tag);
+        self.indent(self.stack.len());
     }
 
     fn singleton(&mut self, tag: &'static str) {
@@ -48,7 +55,7 @@ impl Html {
         if let Some(tag) = self.stack.pop() {
             self.trim_spaces();
             self.content.push_str("</");
-            self.content.push_str(tag);
+            self.content.push_str(&tag);
             self.content.push('>');
         }
     }
@@ -94,9 +101,7 @@ impl Html {
 
     fn indent(&mut self, n: usize) {
         self.nl();
-        for _ in 0..n {
-            self.content.push(' ');
-        }
+        self.push(&" ".repeat(n * TABSIZE));
     }
 
     fn push(&mut self, string: &str) {
@@ -130,24 +135,41 @@ fn escape(string: &str) -> String {
     string.replace('"', "&quot;")
 }
 
+pub fn indent(string: &str, by: usize) -> String {
+    let mut repl = String::from("\n");
+    repl.push_str(&" ".repeat(by * TABSIZE));
+    String::from(string.replace('\n', &repl).trim())
+}
+
 fn render(node: &Node, html: &mut Html) {
     match node {
         Node::Empty => (),
-        Node::Code(code) => {}
-        Node::Codeblock(lang, code) => {}
+        Node::Code(code) => {
+            html.open("code");
+            html.push(&escape(code));
+            html.close();
+        },
+        Node::Codeblock(lang, code) => {
+            html.lopenl("pre");
+            html.push(&indent(&escape(code), html.stack.len()));
+            html.lclosel();
+        },
         Node::Document(children) => {
             html.open("html");
-            html.openl("head");
+            html.lopen("head");
+            html.lopenl("style");
+            html.push(&indent(include_str!("res/style.css"), html.stack.len()));
             html.lclose();
-            html.openl("body");
-            html.openl("main");
+            html.lclose();
+            html.lopen("body");
+            html.lopen("main");
             render_nodes(children, html);
             html.lclose();
             html.lclose();
             html.lclose();
         }
-        Node::Heading(children) => {
-            html.openl("h1");
+        Node::Heading(level, children) => {
+            html.lopen(&format!("h{level}"));
             render_nodes(children, html);
             html.closel();
         }
@@ -159,7 +181,7 @@ fn render(node: &Node, html: &mut Html) {
             html.finish();
         }
         Node::Item(children) => {
-            html.openl("li");
+            html.lopen("li");
             render_nodes(children, html);
             html.close();
         }
@@ -173,7 +195,7 @@ fn render(node: &Node, html: &mut Html) {
             html.space();
         }
         Node::List(children) => {
-            html.openl("ul");
+            html.lopen("ul");
             render_nodes(children, html);
             html.lclosel();
         }

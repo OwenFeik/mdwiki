@@ -2,7 +2,7 @@
 
 use std::str::pattern::Pattern;
 
-use crate::model::{Node, Style};
+use crate::model::{Node, Style, HEADING_MAX_LEVEL};
 
 #[cfg(test)]
 mod test;
@@ -100,9 +100,10 @@ fn consume_chars<'a>(input: &'a str, chars: &str) -> (&'a str, &'a str) {
 }
 
 fn parse_heading<'a>(input: &'a str) -> (&'a str, Node) {
-    let (rest, _) = consume_chars(input.trim_start(), "#");
+    let (rest, hashes) = consume_chars(input.trim_start(), "#");
+    let level = hashes.len().min(HEADING_MAX_LEVEL.into()) as u8;
     let (rest, text) = consume(rest.trim_start(), '\n');
-    (rest, Node::Heading(parse(text)))
+    (rest, Node::Heading(level, parse(text)))
 }
 
 fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {

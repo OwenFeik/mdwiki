@@ -1,0 +1,39 @@
+html, body {
+    font-family: Helvetica, "Trebuchet MS", Verdana, sans-serif;
+    margin: 0;
+
+    --fg1: #F6F7F8;
+    --fg2: #FF3366;
+    --bg: #011627;
+    --a1: #2EC4B6;
+    --a2: #20A4F3;
+
+    color: var(--fg1);
+    background-color: var(--bg);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--fg2);
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    max-width: min(800px, 100%);
+    padding-left: calc((100% - min(800px, 100%)) / 2);
+    padding-right: calc((100% - min(800px, 100%)) / 2);
+}
+
+img {
+    max-width: min(600px, 100%);
+    padding-bottom: 30px;
+    padding-top: 30px;
+}
+
+a:link {
+    color: var(--a1);
+}
+
+a:visited {
+    color: var(--a2);
+}

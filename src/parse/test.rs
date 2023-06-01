@@ -4,7 +4,10 @@ use crate::model::{Node, Style};
 fn test_parse_heading() {
     assert_eq!(
         super::parse_document("# Title of Document"),
-        Node::Document(vec![Node::Heading(vec![Node::text("Title of Document")])])
+        Node::Document(vec![Node::Heading(
+            1,
+            vec![Node::text("Title of Document")]
+        )])
     );
 }
 
@@ -14,14 +17,14 @@ fn test_parse_heading_text() {
         super::parse_document(
             r#"
                 some text
-                # Heading one
+                ## Heading two
                 Some other text
                 more text
             "#
         ),
         Node::Document(vec![
             Node::text("some text"),
-            Node::Heading(vec![Node::text("Heading one")]),
+            Node::Heading(2, vec![Node::text("Heading two")]),
             Node::text("Some other text more text")
         ])
     )
@@ -43,13 +46,16 @@ fn test_parse_bold() {
 fn test_parse_bold_italic() {
     assert_eq!(
         super::parse_document("# Normal *italic* **bold** *italic* normal"),
-        Node::Document(vec![Node::Heading(vec![
-            Node::text("Normal"),
-            Node::Style(Style::Italic, vec![Node::text("italic")]),
-            Node::Style(Style::Bold, vec![Node::text("bold")]),
-            Node::Style(Style::Italic, vec![Node::text("italic")]),
-            Node::text("normal")
-        ])])
+        Node::Document(vec![Node::Heading(
+            1,
+            vec![
+                Node::text("Normal"),
+                Node::Style(Style::Italic, vec![Node::text("italic")]),
+                Node::Style(Style::Bold, vec![Node::text("bold")]),
+                Node::Style(Style::Italic, vec![Node::text("italic")]),
+                Node::text("normal")
+            ]
+        )])
     )
 }
 
@@ -66,7 +72,7 @@ fn test_list() {
     assert_eq!(
         super::parse_document(
             r#"
-                # Heading
+                ### Heading
                 * List item
                     * Sub list item
                     * Another sub item
@@ -74,7 +80,7 @@ fn test_list() {
             "#
         ),
         Node::Document(vec![
-            Node::Heading(vec![Node::text("Heading")]),
+            Node::Heading(3, vec![Node::text("Heading")]),
             Node::List(vec![
                 Node::Item(vec![
                     Node::text("List item"),
@@ -172,11 +178,11 @@ fn test_strikethrough() {
 fn test_code() {
     assert_eq!(
         super::parse_document(concat!(
-            "# Title With `Inline Code`\n",
+            "## Title With `Inline Code`\n",
             "```lang\ncode block line 1\nline 2\n\nline 3```\n"
         )),
         Node::Document(vec![
-            Node::Heading(vec![Node::text("Title With"), Node::code("Inline Code")]),
+            Node::Heading(2, vec![Node::text("Title With"), Node::code("Inline Code")]),
             Node::Codeblock(
                 Some(String::from("lang")),
                 String::from("code block line 1\nline 2\n\nline 3")

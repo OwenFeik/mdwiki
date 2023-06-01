@@ -10,9 +10,6 @@ mod model;
 mod parse;
 mod render;
 
-#[cfg(test)]
-mod test;
-
 const INPUT_EXT: &str = "md";
 const OUTPUT_EXT: &str = "html";
 
