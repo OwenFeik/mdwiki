@@ -140,7 +140,9 @@ fn render(node: &Node, html: &mut Html) {
             html.openl("head");
             html.lclose();
             html.openl("body");
+            html.openl("main");
             render_nodes(children, html);
+            html.lclose();
             html.lclose();
             html.lclose();
         }

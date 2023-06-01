@@ -11,7 +11,9 @@ fn test_render_heading() {
             " <head>\n",
             " </head>\n",
             " <body>\n",
-            "  <h1>Hello World</h1>\n",
+            "  <main>\n",
+            "   <h1>Hello World</h1>\n",
+            "  </main>\n",
             " </body>\n",
             "</html>"
         )

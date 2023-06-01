@@ -16,17 +16,19 @@ const HTML: &str = r#"
  <head>
  </head>
  <body>
-  <h1>Test Markdown File</h1>
-  This is a test markdown file. It should
-  <ul>
-   <li>Parse lists
-    <ul>
-     <li>Including sub lists</li>
-     <li>And <b>bold</b> and <i>italics</i></li>
-     <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>
-    </ul>
-   </li>
-  </ul>
+  <main>
+   <h1>Test Markdown File</h1>
+   This is a test markdown file. It should
+   <ul>
+    <li>Parse lists
+     <ul>
+      <li>Including sub lists</li>
+      <li>And <b>bold</b> and <i>italics</i></li>
+      <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>
+     </ul>
+    </li>
+   </ul>
+  </main>
  </body>
 </html>
 "#;
