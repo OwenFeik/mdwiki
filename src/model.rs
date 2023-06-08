@@ -19,6 +19,7 @@ pub enum Node {
     Link(String, String),              // (text, url)
     List(Vec<Node>),                   // (children)
     Style(Style, Vec<Node>),           // (style, children)
+    Table(Vec<Vec<Vec<Node>>>),        // (rows(columns(cells)))
     Text(String),                      // (text)
 }
 
@@ -41,7 +42,7 @@ impl Node {
 
     pub fn add_text(&mut self, text: &str) {
         match self {
-            Node::Empty | Node::Image(..) | Node::Link(..) => (),
+            Node::Empty | Node::Image(..) | Node::Link(..) | Node::Table(..) => (),
             Node::Style(_, children)
             | Node::Document(children)
             | Node::Heading(_, children)
@@ -68,7 +69,12 @@ impl Node {
             | Node::List(children) => !children.iter().any(|n| !n.is_empty()),
             Node::Code(string) | Node::Codeblock(_, string) | Node::Text(string) => {
                 string.trim().is_empty()
-            }
+            },
+            Node::Table(rows) => !rows.is_empty() && rows.iter().any(
+                    |row| !row.is_empty() && row.iter().any(
+                        |col| col.iter().any(|node| !node.is_empty())
+                    )
+                )
         }
     }
 }

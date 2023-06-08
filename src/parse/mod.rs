@@ -294,6 +294,28 @@ fn starts_with_new_line(input: &str) -> bool {
     false
 }
 
+fn parse_row<'a>(input: &'a str) -> (&'a str, Vec<Vec<Node>>) {
+    let mut rest = input;
+    let mut cols = Vec::new();
+    while !rest.starts_with('\n') {
+        let (next, text) = consume_until_any(rest, "|\n"); 
+        cols.push(parse(text));
+    }
+
+    (rest, cols)
+}
+ 
+fn parse_table<'a>(input: &'a str) -> (&'a str, Node) {
+    let (mut rest, _) = consume(input, '|');
+    rest = drop_first(rest); // drop '|'
+    
+    let rows = Vec::new();
+    let mut cols = Vec::new();
+    while 
+
+    (input, Node::Empty)
+}
+
 fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
     let mut rest = input;
     while starts_with_new_line(rest) {
@@ -308,6 +330,7 @@ fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
         Some('*') | Some('~') => parse_style(rest),
         Some('[') => parse_link(rest),
         Some('!') if nth_solid(rest, 2) == Some('[') => parse_image(rest),
+        Some('|') if at_line_start => parse_table(rest),
         _ => parse_text(rest),
     }
 }

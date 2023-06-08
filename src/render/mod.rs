@@ -213,6 +213,7 @@ fn render(node: &Node, html: &mut Html) {
             html.close();
             html.space();
         }
+        Node::Table(rows) => {}
         Node::Text(text) => {
             html.space_if_needed();
             html.push(text);

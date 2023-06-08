@@ -190,3 +190,17 @@ fn test_code() {
         ])
     )
 }
+
+#[test]
+fn test_parse_table() {
+    assert_eq!(
+        super::parse_document("| Column 1 | Column 2 |\n| some | **bold** |"),
+        Node::Document(vec![Node::Table(vec![
+            vec![vec![Node::text("Column 1")], vec![Node::text("Column 2")]],
+            vec![
+                vec![Node::text("some")],
+                vec![Node::Style(Style::Bold, vec![Node::text("bold")])]
+            ]
+        ])])
+    )
+}
