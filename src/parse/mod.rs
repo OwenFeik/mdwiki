@@ -103,24 +103,24 @@ fn parse_heading<'a>(input: &'a str) -> (&'a str, Node) {
     let (rest, hashes) = consume_chars(input.trim_start(), "#");
     let level = hashes.len().min(HEADING_MAX_LEVEL.into()) as u8;
     let (rest, text) = consume(rest.trim_start(), '\n');
-    (rest, Node::Heading(level, parse(text)))
+    (rest, Node::Heading(level, parse(text, false)))
 }
 
 fn parse_style<'a>(input: &'a str) -> (&'a str, Node) {
     match consume_whitespace(input) {
         input if input.starts_with("**") => {
             let (rest, text) = consume(drop_n(input, 2), "**");
-            (drop_n(rest, 2), Node::Style(Style::Bold, parse(text)))
+            (drop_n(rest, 2), Node::Style(Style::Bold, parse(text, false)))
         }
         input if input.starts_with('*') => {
             let (rest, text) = consume(drop_first(input), '*');
-            (drop_first(rest), Node::Style(Style::Italic, parse(text)))
+            (drop_first(rest), Node::Style(Style::Italic, parse(text, false)))
         }
         input if input.starts_with('~') => {
             let (rest, text) = consume(drop_first(input), '~');
             (
                 drop_first(rest),
-                Node::Style(Style::Strikethrough, parse(text)),
+                Node::Style(Style::Strikethrough, parse(text, false)),
             )
         }
         _ => parse_node(input),
@@ -295,25 +295,32 @@ fn starts_with_new_line(input: &str) -> bool {
 }
 
 fn parse_row<'a>(input: &'a str) -> (&'a str, Vec<Vec<Node>>) {
-    let mut rest = input;
+    let (mut rest, _) = consume(input, '|');
+    rest = drop_first(rest); // drop '|'
     let mut cols = Vec::new();
-    while !rest.starts_with('\n') {
-        let (next, text) = consume_until_any(rest, "|\n"); 
-        cols.push(parse(text));
+    while !rest.is_empty() && !rest.starts_with('\n') {
+        let text;
+        (rest, text) = consume_until_any(rest, "|\n");
+        cols.push(parse(text, false));
+        if rest.starts_with('|') {
+            rest = drop_first(rest);
+        }
     }
 
     (rest, cols)
 }
  
 fn parse_table<'a>(input: &'a str) -> (&'a str, Node) {
-    let (mut rest, _) = consume(input, '|');
-    rest = drop_first(rest); // drop '|'
-    
-    let rows = Vec::new();
-    let mut cols = Vec::new();
-    while 
+    let mut rest = input;
+    let mut rows = Vec::new();
+    while {
+        let row;
+        (rest, row) = parse_row(rest);
+        rows.push(row);
+        rest.starts_with('\n') && first_solid(rest) == Some('|')
+    } {}
 
-    (input, Node::Empty)
+    (rest, Node::Table(rows))
 }
 
 fn _parse_node<'a>(input: &'a str, at_line_start: bool) -> (&'a str, Node) {
@@ -355,10 +362,14 @@ fn parse_node<'a>(input: &'a str) -> (&'a str, Node) {
     _parse_node(input, at_line_start)
 }
 
-fn parse<'a>(input: &'a str) -> Vec<Node> {
+fn parse(input: &str, at_line_start: bool) -> Vec<Node> {
+    let mut rest = input;
     let mut nodes = Vec::new();
-    let (mut rest, node) = parse_node_line_start(input);
-    add_node(&mut nodes, node);
+    if at_line_start {
+        let node;
+        (rest, node) = parse_node_line_start(input);
+        add_node(&mut nodes, node);
+    }
 
     while !is_empty(rest) {
         let node;
@@ -370,5 +381,5 @@ fn parse<'a>(input: &'a str) -> Vec<Node> {
 }
 
 pub fn parse_document(input: &str) -> Node {
-    Node::Document(parse(input))
+    Node::Document(parse(input, true))
 }

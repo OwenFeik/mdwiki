@@ -70,11 +70,25 @@ impl Node {
             Node::Code(string) | Node::Codeblock(_, string) | Node::Text(string) => {
                 string.trim().is_empty()
             },
-            Node::Table(rows) => !rows.is_empty() && rows.iter().any(
-                    |row| !row.is_empty() && row.iter().any(
-                        |col| col.iter().any(|node| !node.is_empty())
+            Node::Table(rows) => rows.is_empty() || rows.iter().all(
+                    |row| row.is_empty() || row.iter().all(
+                        |col| col.is_empty() || col.iter().all(
+                            |node| node.is_empty()
+                        )
                     )
                 )
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Node;
+
+    #[test]
+    fn test_is_empty() {
+        assert!(Node::text("").is_empty());
+        assert!(!Node::text("hi").is_empty());
+        assert!(!Node::Table(vec![vec![vec![Node::text("hi")]]]).is_empty());
     }
 }
