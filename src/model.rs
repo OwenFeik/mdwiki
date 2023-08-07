@@ -12,7 +12,6 @@ pub enum Node {
     Empty,
     Code(String),                      // (code)
     Codeblock(Option<String>, String), // (lang, code)
-    Document(Vec<Node>),               // (children)
     Heading(u8, Vec<Node>),            // (type, children)
     Image(String, String),             // (text, url)
     Item(Vec<Node>),                   // (children)
@@ -44,7 +43,6 @@ impl Node {
         match self {
             Node::Empty | Node::Image(..) | Node::Link(..) | Node::Table(..) => (),
             Node::Style(_, children)
-            | Node::Document(children)
             | Node::Heading(_, children)
             | Node::Item(children)
             | Node::List(children) => children.push(Node::text(text)),
@@ -63,20 +61,21 @@ impl Node {
             Node::Image(_, url) => url.is_empty(),
             Node::Link(text, _) => text.is_empty(),
             Node::Style(_, children)
-            | Node::Document(children)
             | Node::Heading(_, children)
             | Node::Item(children)
             | Node::List(children) => !children.iter().any(|n| !n.is_empty()),
             Node::Code(string) | Node::Codeblock(_, string) | Node::Text(string) => {
                 string.trim().is_empty()
-            },
-            Node::Table(rows) => rows.is_empty() || rows.iter().all(
-                    |row| row.is_empty() || row.iter().all(
-                        |col| col.is_empty() || col.iter().all(
-                            |node| node.is_empty()
-                        )
-                    )
-                )
+            }
+            Node::Table(rows) => {
+                rows.is_empty()
+                    || rows.iter().all(|row| {
+                        row.is_empty()
+                            || row
+                                .iter()
+                                .all(|col| col.is_empty() || col.iter().all(|node| node.is_empty()))
+                    })
+            }
         }
     }
 }

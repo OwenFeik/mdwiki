@@ -13,6 +13,15 @@ mod render;
 const INPUT_EXT: &str = "md";
 const OUTPUT_EXT: &str = "html";
 
+fn create_outdir(outdir: &Path) {
+    if std::fs::create_dir_all(outdir).is_err() {
+        log::warning(&format!(
+            "Failed to create output directory: {}",
+            outdir.display()
+        ));
+    }
+}
+
 fn process_file(file: &Path, outdir: &Path) {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
         log::error(
@@ -29,13 +38,7 @@ fn process_file(file: &Path, outdir: &Path) {
     let document = parse::parse_document(&markdown);
     let html = render::render_document(&document);
 
-    if std::fs::create_dir_all(outdir).is_err() {
-        log::warning(&format!(
-            "Failed to create output directory: {}",
-            outdir.display()
-        ));
-    }
-
+    create_outdir(outdir);
     let output = outdir.join(name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}")));
     if std::fs::write(&output, html).is_ok() {
         log::info(&format!(
@@ -45,6 +48,27 @@ fn process_file(file: &Path, outdir: &Path) {
         ));
     } else {
         log::error(&format!("Failed to write file: {}", output.display()));
+    }
+}
+
+fn copy_file(file: &Path, outdir: &Path) {
+    let Some(name) = file.file_name() else {
+        log::error(
+            &format!("Couldn't find file name for file: {}", file.display())
+        );
+        return;
+    };
+
+    create_outdir(outdir);
+    let output = outdir.join(name);
+    if let Err(e) = std::fs::copy(file, &output) {
+        log::error(&format!("Failed to copy file ({}): {e}", file.display()));
+    } else {
+        log::info(&format!(
+            "Copied {} to {}",
+            file.display(),
+            output.display()
+        ));
     }
 }
 
@@ -60,20 +84,20 @@ fn process_directory(indir: &Path, outdir: &Path) {
         outdir.display()
     ));
 
-    for entry in dir {
-        if let Ok(entry) = entry {
-            if let Ok(filetype) = entry.file_type() {
-                if filetype.is_dir() {
-                    process_directory(
-                        &indir.join(entry.file_name()),
-                        &outdir.join(entry.file_name()),
-                    );
-                } else if filetype.is_file() {
-                    let path = entry.path();
-                    if let Some(Some(ext)) = path.extension().map(OsStr::to_str) {
-                        if ext == INPUT_EXT {
-                            process_file(&entry.path(), outdir);
-                        }
+    for entry in dir.flatten() {
+        if let Ok(filetype) = entry.file_type() {
+            if filetype.is_dir() {
+                process_directory(
+                    &indir.join(entry.file_name()),
+                    &outdir.join(entry.file_name()),
+                );
+            } else if filetype.is_file() {
+                let path = entry.path();
+                if let Some(Some(ext)) = path.extension().map(OsStr::to_str) {
+                    if ext == INPUT_EXT {
+                        process_file(&entry.path(), outdir);
+                    } else {
+                        copy_file(&entry.path(), outdir);
                     }
                 }
             }
@@ -102,9 +126,7 @@ fn main() {
         };
         process_file(&path, parent);
     } else if metadata.is_dir() {
-        let path = PathBuf::from(arg);
-        let indir = path.clone();
-
+        let indir = PathBuf::from(arg);
         let Some(Some(dirname)) = indir.file_name().map(OsStr::to_str) else {
             fail("Couldn't find filename of input directory.");
         };

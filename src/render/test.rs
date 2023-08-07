@@ -19,6 +19,12 @@ fn concat(strings: &[&str]) -> String {
     string
 }
 
+fn test_render(node: Node) -> String {
+    let mut html = super::Html::new();
+    super::render(&node, &mut html);
+    html.content.trim().to_string()
+}
+
 const MD: &str = r#"
 # Test Markdown File
 
@@ -35,10 +41,7 @@ This is a test markdown file. It should
 #[test]
 fn test_render_heading() {
     assert_eq!(
-        super::render_document(&Node::Document(vec![Node::Heading(
-            1,
-            vec![Node::text("Hello World")]
-        )])),
+        super::render_document(&[Node::Heading(1, vec![Node::text("Hello World")])]),
         concat(&[
             "<html>",
             "  <head>",
@@ -57,7 +60,7 @@ fn test_render_heading() {
 #[test]
 fn test_render_links() {
     assert_eq!(
-        &super::render_document(&Node::List(vec![
+        test_render(Node::List(vec![
             Node::Item(vec![
                 Node::text("Click here:"),
                 Node::link("Website", "https://owen.feik.xyz")
@@ -76,7 +79,7 @@ fn test_render_links() {
 #[test]
 fn test_render_style() {
     assert_eq!(
-        &super::render_document(&Node::Style(
+        test_render(Node::Style(
             Style::Italic,
             vec![Node::Style(Style::Bold, vec![Node::text("italic bold")])]
         )),
@@ -104,13 +107,15 @@ fn test_integration() {
             "  <body>",
             "    <main>",
             "      <h1>Test Markdown File</h1>",
-            "      This is a test markdown file. It should",
+            "      <p>",
+            "        This is a test markdown file. It should",
+            "      </p>",
             "      <ul>",
             "        <li>Parse lists",
             "          <ul>",
             "            <li>Including sub lists</li>",
             "            <li>And <b>bold</b> and <i>italics</i></li>",
-            r#"            <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
+            r#"            <li>And <a href="https://owen.feik.xyz">links</a>and <img src="https://example.org/example.jpg" alt="images"></li>"#,
             "          </ul>",
             "        </li>",
             "      </ul>",
@@ -135,9 +140,9 @@ fn test_code_block() {
     super::render(
         &Node::Codeblock(
             Some(String::from("py")),
-            String::from("print(\"Hello World\")")
+            String::from("print(\"Hello World\")"),
         ),
-        &mut html
+        &mut html,
     );
     assert_eq!(
         html.content.trim(),

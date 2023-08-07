@@ -1,4 +1,7 @@
-use crate::model::{Node, Style};
+use crate::{
+    log::warning,
+    model::{Node, Style},
+};
 
 #[cfg(test)]
 mod test;
@@ -148,25 +151,11 @@ fn render(node: &Node, html: &mut Html) {
             html.open("code");
             html.push(&escape(code));
             html.close();
-        },
+        }
         Node::Codeblock(lang, code) => {
             html.lopenl("pre");
             html.push(&indent(&escape(code), html.stack.len()));
             html.lclosel();
-        },
-        Node::Document(children) => {
-            html.open("html");
-            html.lopen("head");
-            html.lopenl("style");
-            html.push(&indent(include_str!("res/style.css"), html.stack.len()));
-            html.lclose();
-            html.lclose();
-            html.lopen("body");
-            html.lopen("main");
-            render_nodes(children, html);
-            html.lclose();
-            html.lclose();
-            html.lclose();
         }
         Node::Heading(level, children) => {
             html.lopen(&format!("h{level}"));
@@ -192,7 +181,6 @@ fn render(node: &Node, html: &mut Html) {
             html.finish();
             html.push(text);
             html.close();
-            html.space();
         }
         Node::List(children) => {
             html.lopen("ul");
@@ -227,8 +215,54 @@ fn render_nodes(nodes: &[Node], html: &mut Html) {
     }
 }
 
-pub fn render_document(node: &Node) -> String {
+pub fn render_document(nodes: &[Node]) -> String {
     let mut html = Html::new();
-    render(&node, &mut html);
-    String::from((&html.content).trim())
+    let mut paragraph_open = false;
+
+    html.open("html");
+    html.lopen("head");
+    html.lopenl("style");
+    html.push(&indent(include_str!("res/style.css"), html.stack.len()));
+    html.lclose();
+    html.lclose();
+    html.lopen("body");
+    html.lopen("main");
+
+    let mut prev = None;
+    for node in nodes {
+        match node {
+            Node::Text(..) => {
+                if paragraph_open && matches!(prev, Some(&Node::Text(..))) {
+                    html.lclosel();
+                    paragraph_open = false;
+                }
+
+                if !paragraph_open {
+                    html.lopenl("p");
+                    paragraph_open = true;
+                }
+            }
+            Node::Codeblock(..)
+            | Node::Heading(..)
+            | Node::Image(..)
+            | Node::List(..)
+            | Node::Table(..) => {
+                if paragraph_open {
+                    html.lclosel();
+                }
+                paragraph_open = false;
+            }
+            Node::Item(..) => warning("List item at root level."),
+            Node::Empty | Node::Code(..) | Node::Link(..) | Node::Style(..) => {}
+        }
+
+        render(node, &mut html);
+        prev = Some(node);
+    }
+
+    html.lclose();
+    html.lclose();
+    html.lclose();
+
+    String::from(html.content.trim())
 }
