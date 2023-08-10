@@ -1,4 +1,5 @@
 use crate::{
+    config::Config,
     log::warning,
     model::{Node, Style},
 };
@@ -204,6 +205,9 @@ fn render(node: &Node, html: &mut Html) {
         Node::Table(rows) => {}
         Node::Text(text) => {
             html.space_if_needed();
+            if html.content.ends_with('>') && text.starts_with(char::is_alphanumeric) {
+                html.space();
+            }
             html.push(text);
         }
     }
@@ -215,7 +219,28 @@ fn render_nodes(nodes: &[Node], html: &mut Html) {
     }
 }
 
-pub fn render_document(nodes: &[Node]) -> String {
+fn add_page_heading(path: &[String], html: &mut Html) {
+    if let Some(title) = path.last() {
+        render(&Node::Heading(1, vec![Node::text(title)]), html);
+    } else {
+        warning("add_page_heading=true but no path present.");
+    }
+}
+
+fn add_page_path(path: &[String], html: &mut Html) {
+    let n = path.len();
+    if n > 1 {
+        let mut nodes = Vec::new();
+        for i in 0..=(n - 1) {
+            let url = "../".repeat(n - 1 - i).to_string();
+            nodes.push(Node::text("/"));
+            nodes.push(Node::Link(path[i].to_string(), url));
+        }
+        render(&Node::Heading(3, nodes), html);
+    }
+}
+
+pub fn render_document(config: &Config, path: &[String], nodes: &[Node]) -> String {
     let mut html = Html::new();
     let mut paragraph_open = false;
 
@@ -228,10 +253,18 @@ pub fn render_document(nodes: &[Node]) -> String {
     html.lopen("body");
     html.lopen("main");
 
+    if config.path {
+        add_page_path(path, &mut html);
+    }
+
+    if config.page_heading {
+        add_page_heading(path, &mut html);
+    }
+
     let mut prev = None;
     for node in nodes {
         match node {
-            Node::Text(..) => {
+            Node::Code(..) | Node::Link(..) | Node::Style(..) | Node::Text(..) => {
                 if paragraph_open && matches!(prev, Some(&Node::Text(..))) {
                     html.lclosel();
                     paragraph_open = false;
@@ -253,7 +286,7 @@ pub fn render_document(nodes: &[Node]) -> String {
                 paragraph_open = false;
             }
             Node::Item(..) => warning("List item at root level."),
-            Node::Empty | Node::Code(..) | Node::Link(..) | Node::Style(..) => {}
+            Node::Empty => {}
         }
 
         render(node, &mut html);

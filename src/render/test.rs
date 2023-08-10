@@ -1,4 +1,7 @@
-use crate::model::{Node, Style};
+use crate::{
+    config::Config,
+    model::{Node, Style},
+};
 
 fn style() -> String {
     let mut style = String::new();
@@ -41,7 +44,11 @@ This is a test markdown file. It should
 #[test]
 fn test_render_heading() {
     assert_eq!(
-        super::render_document(&[Node::Heading(1, vec![Node::text("Hello World")])]),
+        super::render_document(
+            &Config::none(),
+            &[],
+            &[Node::Heading(1, vec![Node::text("Hello World")])]
+        ),
         concat(&[
             "<html>",
             "  <head>",
@@ -98,7 +105,11 @@ fn test_escaping() {
 #[test]
 fn test_integration() {
     assert_eq!(
-        super::render_document(&crate::parse::parse_document(MD.trim())),
+        super::render_document(
+            &Config::none(),
+            &[],
+            &crate::parse::parse_document(MD.trim())
+        ),
         concat(&[
             "<html>",
             "  <head>",

@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
     font-family: Helvetica, "Trebuchet MS", Verdana, sans-serif;
     margin: 0;
 
@@ -12,7 +13,12 @@ html, body {
     background-color: var(--bg);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     color: var(--fg2);
 }
 
@@ -25,9 +31,13 @@ main {
 }
 
 img {
-    max-width: min(600px, 100%);
-    padding-bottom: 30px;
-    padding-top: 30px;
+    --padding: 15px;
+
+    object-fit: contain;
+    max-height: 360px;
+    padding-bottom: var(--padding);
+    padding-top: var(--padding);
+    width: 100%;
 }
 
 a:link {
