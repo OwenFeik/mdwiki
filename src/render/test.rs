@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    model::{Node, Style},
+    model::{Node, Style}, fstree::FsTree,
 };
 
 fn style() -> String {
@@ -46,7 +46,8 @@ fn test_render_heading() {
     assert_eq!(
         super::render_document(
             &Config::none(),
-            &[],
+            &FsTree::new(),
+            0,
             &[Node::Heading(1, vec![Node::text("Hello World")])]
         ),
         concat(&[
@@ -107,7 +108,8 @@ fn test_integration() {
     assert_eq!(
         super::render_document(
             &Config::none(),
-            &[],
+            &FsTree::new(),
+            0,
             &crate::parse::parse_document(MD.trim())
         ),
         concat(&[

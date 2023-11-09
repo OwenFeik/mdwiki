@@ -6,3 +6,5 @@
 * Allow omission of links; automatically link to `snakecase(title)` or some
     similar simple mapping.
 * Warn for missing files when processing links.
+* Links start on a new line.
+* Headings have a leading space.

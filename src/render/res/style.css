@@ -1,13 +1,15 @@
 html,
 body {
-    font-family: Helvetica, "Trebuchet MS", Verdana, sans-serif;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 18px;
+
     margin: 0;
 
-    --fg1: #F6F7F8;
-    --fg2: #FF3366;
-    --bg: #011627;
-    --a1: #2EC4B6;
-    --a2: #20A4F3;
+    --fg1: #001514;
+    --fg2: #A33B20;
+    --bg: #EADEDA;
+    --a1: #F18F01;
+    --a2: #5A352A;
 
     color: var(--fg1);
     background-color: var(--bg);

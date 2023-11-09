@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     log::warning,
-    model::{Node, Style},
+    model::{Node, Style}, fstree::FsTree,
 };
 
 #[cfg(test)]
@@ -30,6 +30,11 @@ impl Html {
     fn start(&mut self, tag: &str) {
         self._start(tag);
         self.stack.push(String::from(tag));
+    }
+
+    fn lstart(&mut self, tag: &str) {
+        self.indent(self.stack.len());
+        self.start(tag);
     }
 
     fn open(&mut self, tag: &str) {
@@ -240,12 +245,19 @@ fn add_page_path(path: &[String], html: &mut Html) {
     }
 }
 
-pub fn render_document(config: &Config, path: &[String], nodes: &[Node]) -> String {
+pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Node]) -> String {
+    const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
+
     let mut html = Html::new();
     let mut paragraph_open = false;
 
     html.open("html");
     html.lopen("head");
+    html.lstart("style");
+    html.attr("href", FONT);
+    html.attr("rel", "stylesheet");
+    html.finish();
+    html.close();
     html.lopenl("style");
     html.push(&indent(include_str!("res/style.css"), html.stack.len()));
     html.lclose();
@@ -253,12 +265,15 @@ pub fn render_document(config: &Config, path: &[String], nodes: &[Node]) -> Stri
     html.lopen("body");
     html.lopen("main");
 
-    if config.path {
-        add_page_path(path, &mut html);
-    }
-
-    if config.page_heading {
-        add_page_heading(path, &mut html);
+    if let Some(node) = tree.get(page) {
+        let path = node.path();
+        if config.path {
+            add_page_path(path, &mut html);
+        }
+    
+        if config.page_heading {
+            add_page_heading(path, &mut html);
+        }
     }
 
     let mut prev = None;
