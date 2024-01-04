@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 #![feature(pattern)]
 
 use std::{
@@ -30,9 +31,10 @@ fn create_outdir(outdir: &Path) {
 
 fn process_file(config: &Config, tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
-        log::error(
-            &format!("Couldn't find file name for file: {}", file.display())
-        );
+        log::error(&format!(
+            "Couldn't find file name for file: {}",
+            file.display()
+        ));
         return;
     };
 
@@ -61,9 +63,10 @@ fn process_file(config: &Config, tree: &mut FsTree, parent: usize, file: &Path, 
 
 fn copy_file(file: &Path, outdir: &Path) {
     let Some(name) = file.file_name() else {
-        log::error(
-            &format!("Couldn't find file name for file: {}", file.display())
-        );
+        log::error(&format!(
+            "Couldn't find file name for file: {}",
+            file.display()
+        ));
         return;
     };
 
@@ -80,12 +83,17 @@ fn copy_file(file: &Path, outdir: &Path) {
     }
 }
 
-fn process_directory(config: &Config, tree: &mut FsTree, parent: usize, indir: &Path, outdir: &Path) {
+fn process_directory(
+    config: &Config,
+    tree: &mut FsTree,
+    parent: usize,
+    indir: &Path,
+    outdir: &Path,
+) {
     let Ok(dir) = std::fs::read_dir(indir) else {
         log::error(&format!("Couldn't read directory: {}", indir.display()));
         return;
     };
-
 
     log::info(&format!(
         "Rendering {} to {}",

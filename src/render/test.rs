@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
-    model::{Node, Style}, fstree::FsTree,
+    fstree::FsTree,
+    model::{Node, Style},
 };
 
 fn style() -> String {
@@ -160,5 +161,30 @@ fn test_code_block() {
     assert_eq!(
         html.content.trim(),
         "<pre>\n  print(&quot;Hello World&quot;)\n</pre>"
+    );
+}
+
+#[test]
+fn test_nav_tree() {
+    let mut tree = FsTree::new();
+    let root = tree.add("index", FsTree::ROOT);
+    let country = tree.add("country", root);
+    tree.add("citya", country);
+    tree.add("cityb", country);
+    let node = super::make_nav_tree(&tree);
+
+    dbg!(&node);
+    assert_eq!(
+        node,
+        Node::List(vec![
+            Node::Item(vec![Node::link("index", "/index")]),
+            Node::Item(vec![Node::List(vec![
+                Node::Item(vec![Node::link("country", "/index/country")]),
+                Node::Item(vec![Node::List(vec![
+                    Node::Item(vec![Node::link("citya", "/index/country/citya")]),
+                    Node::Item(vec![Node::link("cityb", "/index/country/cityb")])
+                ])])
+            ])])
+        ])
     );
 }

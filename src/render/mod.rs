@@ -1,7 +1,8 @@
 use crate::{
     config::Config,
+    fstree::FsTree,
     log::warning,
-    model::{Node, Style}, fstree::FsTree,
+    model::{Node, Style},
 };
 
 #[cfg(test)]
@@ -236,13 +237,38 @@ fn add_page_path(path: &[String], html: &mut Html) {
     let n = path.len();
     if n > 1 {
         let mut nodes = Vec::new();
-        for i in 0..=(n - 1) {
+        for (i, name) in path.iter().enumerate() {
             let url = "../".repeat(n - 1 - i).to_string();
             nodes.push(Node::text("/"));
-            nodes.push(Node::Link(path[i].to_string(), url));
+            nodes.push(Node::Link(name.clone(), url));
         }
         render(&Node::Heading(3, nodes), html);
     }
+}
+
+fn make_nav_subtree(tree: &FsTree, id: usize) -> Vec<Node> {
+    let mut entries = Vec::new();
+    if let Some(node) = tree.get(id) {
+        if let Some(name) = node.name() {
+            entries.push(Node::Item(vec![Node::link(name, &node.url())]))
+        }
+    }
+
+    let mut children = Vec::new();
+    for child in tree.children(id) {
+        let subtree = make_nav_subtree(tree, child);
+        children.extend(subtree);
+    }
+
+    if !children.is_empty() {
+        entries.push(Node::Item(vec![Node::List(children)]));
+    }
+
+    entries
+}
+
+fn make_nav_tree(tree: &FsTree) -> Node {
+    Node::List(make_nav_subtree(tree, FsTree::ROOT))
 }
 
 pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Node]) -> String {
@@ -270,7 +296,7 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
         if config.path {
             add_page_path(path, &mut html);
         }
-    
+
         if config.page_heading {
             add_page_heading(path, &mut html);
         }
