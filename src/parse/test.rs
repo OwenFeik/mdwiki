@@ -4,7 +4,7 @@ use crate::model::{Node, Style};
 fn test_parse_heading() {
     assert_eq!(
         super::parse_document("# Title of Document"),
-        vec![Node::Heading(1, vec![Node::text("Title of Document")])]
+        vec![Node::heading(1, vec![Node::text("Title of Document")])]
     );
 }
 
@@ -21,7 +21,7 @@ fn test_parse_heading_text() {
         ),
         vec![
             Node::text("some text"),
-            Node::Heading(2, vec![Node::text("Heading two")]),
+            Node::heading(2, vec![Node::text("Heading two")]),
             Node::text("Some other text more text")
         ]
     )
@@ -33,7 +33,7 @@ fn test_parse_bold() {
         super::parse_document("Some text **bolded text** end"),
         vec![
             Node::text("Some text"),
-            Node::Style(Style::Bold, vec![Node::text("bolded text")]),
+            Node::style(Style::Bold, vec![Node::text("bolded text")]),
             Node::text("end")
         ]
     )
@@ -43,13 +43,13 @@ fn test_parse_bold() {
 fn test_parse_bold_italic() {
     assert_eq!(
         super::parse_document("# Normal *italic* **bold** *italic* normal"),
-        vec![Node::Heading(
+        vec![Node::heading(
             1,
             vec![
                 Node::text("Normal"),
-                Node::Style(Style::Italic, vec![Node::text("italic")]),
-                Node::Style(Style::Bold, vec![Node::text("bold")]),
-                Node::Style(Style::Italic, vec![Node::text("italic")]),
+                Node::style(Style::Italic, vec![Node::text("italic")]),
+                Node::style(Style::Bold, vec![Node::text("bold")]),
+                Node::style(Style::Italic, vec![Node::text("italic")]),
                 Node::text("normal")
             ]
         )]
@@ -77,16 +77,16 @@ fn test_list() {
             "#
         ),
         vec![
-            Node::Heading(3, vec![Node::text("Heading")]),
-            Node::List(vec![
-                Node::Item(vec![
+            Node::heading(3, vec![Node::text("Heading")]),
+            Node::list(vec![
+                Node::item(vec![
                     Node::text("List item"),
-                    Node::List(vec![
-                        Node::Item(vec![Node::text("Sub list item")]),
-                        Node::Item(vec![Node::text("Another sub item")])
+                    Node::list(vec![
+                        Node::text("Sub list item"),
+                        Node::text("Another sub item")
                     ]),
                 ]),
-                Node::Item(vec![Node::text("Another list item")])
+                Node::text("Another list item")
             ])
         ]
     )
@@ -97,7 +97,7 @@ fn test_end_list() {
     assert_eq!(
         super::parse_document("* list item\ncontinued\n\nended"),
         vec![
-            Node::List(vec![Node::Item(vec![Node::text("list item continued")])]),
+            Node::list(vec![Node::text("list item continued")]),
             Node::text("ended")
         ]
     )
@@ -107,7 +107,7 @@ fn test_end_list() {
 fn test_parse_list_item() {
     assert_eq!(
         super::parse_list_item("* list item\n* next item").1,
-        Node::Item(vec![Node::text("list item")])
+        Node::item(vec![Node::text("list item")])
     )
 }
 
@@ -115,9 +115,9 @@ fn test_parse_list_item() {
 fn test_parse_list_sub_item() {
     assert_eq!(
         super::parse_list_item("* list item\n  * sub item").1,
-        Node::Item(vec![
+        Node::item(vec![
             Node::text("list item"),
-            Node::List(vec![Node::Item(vec![Node::text("sub item")])])
+            Node::list(vec![Node::text("sub item")])
         ])
     )
 }
@@ -126,12 +126,12 @@ fn test_parse_list_sub_item() {
 fn test_parse_list() {
     assert_eq!(
         super::parse_list("* list item\n  * sub item\n* next item").1,
-        Node::List(vec![
-            Node::Item(vec![
+        Node::list(vec![
+            Node::item(vec![
                 Node::text("list item"),
-                Node::List(vec![Node::Item(vec![Node::text("sub item")])])
+                Node::list(vec![Node::text("sub item")])
             ]),
-            Node::Item(vec![Node::text("next item")])
+            Node::text("next item")
         ])
     )
 }
@@ -140,10 +140,7 @@ fn test_parse_list() {
 fn test_parse_link() {
     assert_eq!(
         super::parse_document("[My Website](https://owen.feik.xyz)"),
-        vec![Node::Link(
-            String::from("My Website"),
-            String::from("https://owen.feik.xyz")
-        )]
+        vec![Node::link("My Website", "https://owen.feik.xyz")]
     )
 }
 
@@ -167,7 +164,7 @@ fn test_parse_image() {
 fn test_strikethrough() {
     assert_eq!(
         super::parse_node("~struckthrough~").1,
-        Node::Style(Style::Strikethrough, vec![Node::text("struckthrough")])
+        Node::style(Style::Strikethrough, vec![Node::text("struckthrough")])
     )
 }
 
@@ -179,11 +176,8 @@ fn test_code() {
             "```lang\ncode block line 1\nline 2\n\nline 3```\n"
         )),
         vec![
-            Node::Heading(2, vec![Node::text("Title With"), Node::code("Inline Code")]),
-            Node::Codeblock(
-                Some(String::from("lang")),
-                String::from("code block line 1\nline 2\n\nline 3")
-            )
+            Node::heading(2, vec![Node::text("Title With"), Node::code("Inline Code")]),
+            Node::codeblock(Some("lang"), "code block line 1\nline 2\n\nline 3")
         ]
     )
 }
@@ -192,11 +186,11 @@ fn test_code() {
 fn test_parse_table() {
     assert_eq!(
         super::parse_document("| Column 1 | Column 2 |\n| some | **bold** |"),
-        vec![Node::Table(vec![
+        vec![Node::table(vec![
             vec![vec![Node::text("Column 1")], vec![Node::text("Column 2")]],
             vec![
                 vec![Node::text("some")],
-                vec![Node::Style(Style::Bold, vec![Node::text("bold")])]
+                vec![Node::style(Style::Bold, vec![Node::text("bold")])]
             ]
         ])]
     )

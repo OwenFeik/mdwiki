@@ -4,8 +4,13 @@ use crate::{
     model::{Node, Style},
 };
 
+use super::*;
+
 fn style() -> String {
     let mut style = String::new();
+    style.push_str("    <style href=\"");
+    style.push_str(FONT);
+    style.push_str("\" rel=\"stylesheet\"></style>\n");
     style.push_str("    <style>\n      ");
     style.push_str(&super::indent(include_str!("res/style.css"), 3));
     style.push_str("\n    </style>");
@@ -25,7 +30,7 @@ fn concat(strings: &[&str]) -> String {
 
 fn test_render(node: Node) -> String {
     let mut html = super::Html::new();
-    super::render(&node, &mut html);
+    render(&node, &mut html);
     html.content.trim().to_string()
 }
 
@@ -49,7 +54,7 @@ fn test_render_heading() {
             &Config::none(),
             &FsTree::new(),
             0,
-            &[Node::Heading(1, vec![Node::text("Hello World")])]
+            &[Node::heading(1, vec![Node::text("Hello World")])]
         ),
         concat(&[
             "<html>",
@@ -69,12 +74,12 @@ fn test_render_heading() {
 #[test]
 fn test_render_links() {
     assert_eq!(
-        test_render(Node::List(vec![
-            Node::Item(vec![
+        test_render(Node::list(vec![
+            Node::item(vec![
                 Node::text("Click here:"),
                 Node::link("Website", "https://owen.feik.xyz")
             ]),
-            Node::Item(vec![Node::image("image alt", "https://image.url")])
+            Node::image("image alt", "https://image.url")
         ])),
         concat!(
             "<ul>\n",
@@ -88,9 +93,9 @@ fn test_render_links() {
 #[test]
 fn test_render_style() {
     assert_eq!(
-        test_render(Node::Style(
+        test_render(Node::style(
             Style::Italic,
-            vec![Node::Style(Style::Bold, vec![Node::text("italic bold")])]
+            vec![Node::style(Style::Bold, vec![Node::text("italic bold")])]
         )),
         concat!("<i><b>italic bold</b></i>")
     )
@@ -129,7 +134,7 @@ fn test_integration() {
             "          <ul>",
             "            <li>Including sub lists</li>",
             "            <li>And <b>bold</b> and <i>italics</i></li>",
-            r#"            <li>And <a href="https://owen.feik.xyz">links</a>and <img src="https://example.org/example.jpg" alt="images"></li>"#,
+            r#"            <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
             "          </ul>",
             "        </li>",
             "      </ul>",
@@ -152,10 +157,7 @@ fn test_code() {
 fn test_code_block() {
     let mut html = super::Html::new();
     super::render(
-        &Node::Codeblock(
-            Some(String::from("py")),
-            String::from("print(\"Hello World\")"),
-        ),
+        &Node::codeblock(Some("py"), "print(\"Hello World\")"),
         &mut html,
     );
     assert_eq!(
@@ -176,15 +178,15 @@ fn test_nav_tree() {
     dbg!(&node);
     assert_eq!(
         node,
-        Node::List(vec![
-            Node::Item(vec![Node::link("index", "/index")]),
-            Node::Item(vec![Node::List(vec![
-                Node::Item(vec![Node::link("country", "/index/country")]),
-                Node::Item(vec![Node::List(vec![
-                    Node::Item(vec![Node::link("citya", "/index/country/citya")]),
-                    Node::Item(vec![Node::link("cityb", "/index/country/cityb")])
-                ])])
-            ])])
+        Node::list(vec![
+            Node::link("index", "/index"),
+            Node::list(vec![
+                Node::link("country", "/index/country"),
+                Node::list(vec![
+                    Node::link("citya", "/index/country/citya"),
+                    Node::link("cityb", "/index/country/cityb")
+                ])
+            ])
         ])
     );
 }

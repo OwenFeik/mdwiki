@@ -2,7 +2,7 @@ use crate::{
     config::Config,
     fstree::FsTree,
     log::warning,
-    model::{Node, Style},
+    model::{El, Node, Style},
 };
 
 #[cfg(test)]
@@ -13,6 +13,7 @@ const TABSIZE: usize = 2;
 struct Html {
     content: String,
     stack: Vec<String>,
+    just_closed: Option<String>,
 }
 
 impl Html {
@@ -20,12 +21,13 @@ impl Html {
         Self {
             content: String::new(),
             stack: Vec::new(),
+            just_closed: None,
         }
     }
 
     fn _start(&mut self, tag: &str) {
-        self.content.push('<');
-        self.content.push_str(tag);
+        self.push('<');
+        self.push_str(tag);
     }
 
     fn start(&mut self, tag: &str) {
@@ -44,7 +46,7 @@ impl Html {
     }
 
     fn finish(&mut self) {
-        self.content.push('>');
+        self.push('>');
     }
 
     fn lopen(&mut self, tag: &str) {
@@ -64,9 +66,10 @@ impl Html {
     fn close(&mut self) {
         if let Some(tag) = self.stack.pop() {
             self.trim_spaces();
-            self.content.push_str("</");
-            self.content.push_str(&tag);
-            self.content.push('>');
+            self.push_str("</");
+            self.push_str(&tag);
+            self.push('>');
+            self.just_closed = Some(tag);
         }
     }
 
@@ -106,36 +109,46 @@ impl Html {
 
     fn nl(&mut self) {
         self.trim_end();
-        self.content.push('\n');
+        self.push('\n');
     }
 
     fn indent(&mut self, n: usize) {
         self.nl();
-        self.push(&" ".repeat(n * TABSIZE));
+        self.push_str(&" ".repeat(n * TABSIZE));
     }
 
-    fn push(&mut self, string: &str) {
+    fn push(&mut self, c: char) {
+        self.content.push(c);
+        self.just_closed = None;
+    }
+
+    fn push_str(&mut self, string: &str) {
         self.content.push_str(string);
+        self.just_closed = None;
     }
 
     fn attr(&mut self, key: &str, value: &str) {
         self.space();
-        self.push(key);
-        self.content.push('=');
-        self.content.push('"');
-        self.push(value);
-        self.content.push('"');
+        self.push_str(key);
+        self.push('=');
+        self.push('"');
+        self.push_str(value);
+        self.push('"');
     }
 
     fn space(&mut self) {
-        self.content.push(' ');
+        self.push(' ');
     }
 
     fn space_if_needed(&mut self) {
-        if self
-            .content
-            .ends_with(|c: char| !c.is_whitespace() && c != '>')
-        {
+        if self.content.ends_with('>') {
+            if matches!(
+                self.just_closed.as_deref(),
+                Some("a" | "b" | "i" | "s" | "code")
+            ) {
+                self.space();
+            }
+        } else if !self.content.ends_with(char::is_whitespace) {
             self.space();
         }
     }
@@ -152,49 +165,49 @@ pub fn indent(string: &str, by: usize) -> String {
 }
 
 fn render(node: &Node, html: &mut Html) {
-    match node {
-        Node::Empty => (),
-        Node::Code(code) => {
+    match node.el() {
+        El::Empty => (),
+        El::Code(code) => {
             html.open("code");
-            html.push(&escape(code));
+            html.push_str(&escape(code));
             html.close();
         }
-        Node::Codeblock(lang, code) => {
+        El::Codeblock(_lang, code) => {
             html.lopenl("pre");
-            html.push(&indent(&escape(code), html.stack.len()));
+            html.push_str(&indent(&escape(code), html.stack.len()));
             html.lclosel();
         }
-        Node::Heading(level, children) => {
+        El::Heading(level, children) => {
             html.lopen(&format!("h{level}"));
             render_nodes(children, html);
             html.closel();
         }
-        Node::Image(text, url) => {
+        El::Image(text, url) => {
             html.space_if_needed();
             html.singleton("img");
             html.attr("src", url);
             html.attr("alt", text);
             html.finish();
         }
-        Node::Item(children) => {
+        El::Item(children) => {
             html.lopen("li");
             render_nodes(children, html);
             html.close();
         }
-        Node::Link(text, url) => {
+        El::Link(text, url) => {
             html.space_if_needed();
             html.start("a");
             html.attr("href", &escape(url));
             html.finish();
-            html.push(text);
+            html.push_str(text);
             html.close();
         }
-        Node::List(children) => {
+        El::List(children) => {
             html.lopen("ul");
             render_nodes(children, html);
             html.lclosel();
         }
-        Node::Style(style, children) => {
+        El::Style(style, children) => {
             let tag = match style {
                 Style::Bold => "b",
                 Style::Italic => "i",
@@ -208,13 +221,10 @@ fn render(node: &Node, html: &mut Html) {
             html.close();
             html.space();
         }
-        Node::Table(rows) => {}
-        Node::Text(text) => {
+        El::Table(rows) => {}
+        El::Text(text) => {
             html.space_if_needed();
-            if html.content.ends_with('>') && text.starts_with(char::is_alphanumeric) {
-                html.space();
-            }
-            html.push(text);
+            html.push_str(text);
         }
     }
 }
@@ -227,7 +237,7 @@ fn render_nodes(nodes: &[Node], html: &mut Html) {
 
 fn add_page_heading(path: &[String], html: &mut Html) {
     if let Some(title) = path.last() {
-        render(&Node::Heading(1, vec![Node::text(title)]), html);
+        render(&Node::heading(1, vec![Node::text(title)]), html);
     } else {
         warning("add_page_heading=true but no path present.");
     }
@@ -240,9 +250,9 @@ fn add_page_path(path: &[String], html: &mut Html) {
         for (i, name) in path.iter().enumerate() {
             let url = "../".repeat(n - 1 - i).to_string();
             nodes.push(Node::text("/"));
-            nodes.push(Node::Link(name.clone(), url));
+            nodes.push(Node::link(name, &url));
         }
-        render(&Node::Heading(3, nodes), html);
+        render(&Node::heading(3, nodes), html);
     }
 }
 
@@ -250,7 +260,7 @@ fn make_nav_subtree(tree: &FsTree, id: usize) -> Vec<Node> {
     let mut entries = Vec::new();
     if let Some(node) = tree.get(id) {
         if let Some(name) = node.name() {
-            entries.push(Node::Item(vec![Node::link(name, &node.url())]))
+            entries.push(Node::link(name, &node.url()))
         }
     }
 
@@ -261,19 +271,19 @@ fn make_nav_subtree(tree: &FsTree, id: usize) -> Vec<Node> {
     }
 
     if !children.is_empty() {
-        entries.push(Node::Item(vec![Node::List(children)]));
+        entries.push(Node::list(children));
     }
 
     entries
 }
 
 fn make_nav_tree(tree: &FsTree) -> Node {
-    Node::List(make_nav_subtree(tree, FsTree::ROOT))
+    Node::list(make_nav_subtree(tree, FsTree::ROOT))
 }
 
-pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Node]) -> String {
-    const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
+const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
+pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Node]) -> String {
     let mut html = Html::new();
     let mut paragraph_open = false;
 
@@ -285,7 +295,7 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
     html.finish();
     html.close();
     html.lopenl("style");
-    html.push(&indent(include_str!("res/style.css"), html.stack.len()));
+    html.push_str(&indent(include_str!("res/style.css"), html.stack.len()));
     html.lclose();
     html.lclose();
     html.lopen("body");
@@ -302,13 +312,18 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
         }
     }
 
-    let mut prev = None;
+    let mut prev: Option<&Node> = None;
     for node in nodes {
-        match node {
-            Node::Code(..) | Node::Link(..) | Node::Style(..) | Node::Text(..) => {
-                if paragraph_open && matches!(prev, Some(&Node::Text(..))) {
-                    html.lclosel();
-                    paragraph_open = false;
+        match node.el() {
+            El::Code(..) | El::Link(..) | El::Style(..) | El::Text(..) => {
+                if paragraph_open {
+                    match prev {
+                        Some(n) if matches!(n.el(), El::Text(..)) => {
+                            html.lclosel();
+                            paragraph_open = false;
+                        }
+                        _ => {}
+                    }
                 }
 
                 if !paragraph_open {
@@ -316,18 +331,14 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
                     paragraph_open = true;
                 }
             }
-            Node::Codeblock(..)
-            | Node::Heading(..)
-            | Node::Image(..)
-            | Node::List(..)
-            | Node::Table(..) => {
+            El::Codeblock(..) | El::Heading(..) | El::Image(..) | El::List(..) | El::Table(..) => {
                 if paragraph_open {
                     html.lclosel();
                 }
                 paragraph_open = false;
             }
-            Node::Item(..) => warning("List item at root level."),
-            Node::Empty => {}
+            El::Item(..) => warning("List item at root level."),
+            El::Empty => {}
         }
 
         render(node, &mut html);

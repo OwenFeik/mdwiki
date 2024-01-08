@@ -2,7 +2,7 @@
 
 use std::str::pattern::Pattern;
 
-use crate::model::{Node, Style, HEADING_MAX_LEVEL};
+use crate::model::{El, Node, Style, HEADING_MAX_LEVEL};
 
 #[cfg(test)]
 mod test;
@@ -103,7 +103,7 @@ fn parse_heading(input: &str) -> (&str, Node) {
     let (rest, hashes) = consume_chars(input.trim_start(), "#");
     let level = hashes.len().min(HEADING_MAX_LEVEL.into()) as u8;
     let (rest, text) = consume(rest.trim_start(), '\n');
-    (rest, Node::Heading(level, parse(text, false)))
+    (rest, Node::heading(level, parse(text, false)))
 }
 
 fn parse_style(input: &str) -> (&str, Node) {
@@ -112,21 +112,21 @@ fn parse_style(input: &str) -> (&str, Node) {
             let (rest, text) = consume(drop_n(input, 2), "**");
             (
                 drop_n(rest, 2),
-                Node::Style(Style::Bold, parse(text, false)),
+                Node::style(Style::Bold, parse(text, false)),
             )
         }
         input if input.starts_with('*') => {
             let (rest, text) = consume(drop_first(input), '*');
             (
                 drop_first(rest),
-                Node::Style(Style::Italic, parse(text, false)),
+                Node::style(Style::Italic, parse(text, false)),
             )
         }
         input if input.starts_with('~') => {
             let (rest, text) = consume(drop_first(input), '~');
             (
                 drop_first(rest),
-                Node::Style(Style::Strikethrough, parse(text, false)),
+                Node::style(Style::Strikethrough, parse(text, false)),
             )
         }
         _ => parse_node(input),
@@ -134,7 +134,7 @@ fn parse_style(input: &str) -> (&str, Node) {
 }
 
 fn parse_text(input: &str) -> (&str, Node) {
-    let mut node = Node::Text(String::new());
+    let mut node = Node::text("");
     let mut rest = input.trim_start();
 
     loop {
@@ -147,7 +147,7 @@ fn parse_text(input: &str) -> (&str, Node) {
             if first_solid(rest) == Some('!') {
                 if nth_solid(rest, 2) == Some('[') {
                     break;
-                } else if let Node::Text(text) = &mut node {
+                } else if let El::Text(text) = node.el_mut() {
                     text.push('!');
                     rest = drop_first(rest);
                 }
@@ -195,7 +195,7 @@ fn parse_list_item(input: &str) -> (&str, Node) {
         }
 
         if first_solid(rest) == Some('*') && list_prefix_size(rest) <= prefix_size {
-            return (rest, Node::Item(nodes));
+            return (rest, Node::item(nodes));
         }
 
         if starts_with_empty_line(rest) {
@@ -206,7 +206,7 @@ fn parse_list_item(input: &str) -> (&str, Node) {
         (rest, node) = parse_node_line_start(rest);
         add_node(&mut nodes, node);
     }
-    (rest, Node::Item(nodes))
+    (rest, Node::item(nodes))
 }
 
 fn parse_list(input: &str) -> (&str, Node) {
@@ -221,7 +221,7 @@ fn parse_list(input: &str) -> (&str, Node) {
         add_node(&mut nodes, node);
     }
 
-    (rest, Node::List(nodes))
+    (rest, Node::list(nodes))
 }
 
 fn parse_link(input: &str) -> (&str, Node) {
@@ -249,18 +249,18 @@ fn parse_link(input: &str) -> (&str, Node) {
     let mut node;
     (rest, node) = parse_text(rest);
 
-    if let Node::Text(text) = &mut node {
-        node = Node::Text(format!("{} {}", &input[..consumed].trim(), &text.trim()));
+    if let El::Text(text) = node.el_mut() {
+        node = Node::text(&format!("{} {}", &input[..consumed].trim(), &text.trim()));
     }
     (rest, node)
 }
 
 fn parse_image(input: &str) -> (&str, Node) {
-    let result = parse_link(drop_first(input.trim_start()));
-    if let (rest, Node::Link(text, url)) = result {
-        (rest, Node::Image(text, url))
+    let (rest, result) = parse_link(drop_first(input.trim_start()));
+    if let (Some(text), Some(url)) = (result.el_text(), result.el_url()) {
+        (rest, Node::image(text, url))
     } else {
-        result
+        (rest, result)
     }
 }
 
@@ -272,14 +272,11 @@ fn parse_code(input: &str) -> (&str, Node) {
             let (rest_code, lang) = consume(code, |c: char| !c.is_alphanumeric());
 
             if !rest_code.is_empty() {
-                return (
-                    rest,
-                    Node::Codeblock(Some(String::from(lang)), String::from(rest_code.trim())),
-                );
+                return (rest, Node::codeblock(Some(lang), rest_code));
             }
         }
 
-        (rest, Node::Codeblock(None, String::from(code)))
+        (rest, Node::codeblock(None, code))
     } else {
         let (rest, code) = consume(drop_first(input), '`');
         (rest, Node::code(code))
@@ -324,7 +321,7 @@ fn parse_table(input: &str) -> (&str, Node) {
         rest.starts_with('\n') && first_solid(rest) == Some('|')
     } {}
 
-    (rest, Node::Table(rows))
+    (rest, Node::table(rows))
 }
 
 fn _parse_node(input: &str, at_line_start: bool) -> (&str, Node) {
@@ -334,7 +331,7 @@ fn _parse_node(input: &str, at_line_start: bool) -> (&str, Node) {
     }
 
     match first_solid(rest) {
-        None => ("", Node::Empty),
+        None => ("", Node::empty()),
         Some('`') => parse_code(rest),
         Some('#') => parse_heading(rest),
         Some('*') if at_line_start => parse_list(rest),

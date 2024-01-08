@@ -7,7 +7,7 @@ use std::{
 };
 
 use config::Config;
-use fstree::{FsNode, FsTree};
+use fstree::FsTree;
 
 mod config;
 mod fstree;
@@ -46,7 +46,7 @@ fn process_file(config: &Config, tree: &mut FsTree, parent: usize, file: &Path, 
     let page = tree.add(name, parent);
 
     let document = parse::parse_document(&markdown);
-    let html = render::render_document(config, tree, parent, &document);
+    let html = render::render_document(config, tree, page, &document);
 
     create_outdir(outdir);
     let output = outdir.join(name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}")));
