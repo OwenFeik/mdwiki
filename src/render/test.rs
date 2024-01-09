@@ -173,20 +173,45 @@ fn test_nav_tree() {
     let country = tree.add("country", root);
     tree.add("citya", country);
     tree.add("cityb", country);
-    let node = super::make_nav_tree(&tree);
+    let node = super::make_nav_tree(&tree, country);
 
-    dbg!(&node);
+    let mut country = Node::link("country", "/index/country");
+    country.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
     assert_eq!(
         node,
-        Node::list(vec![
+        Node::div(vec![
             Node::link("index", "/index"),
-            Node::list(vec![
-                Node::link("country", "/index/country"),
+            Node::list(vec![Node::item(vec![
+                country,
                 Node::list(vec![
                     Node::link("citya", "/index/country/citya"),
                     Node::link("cityb", "/index/country/cityb")
                 ])
-            ])
+            ])])
         ])
     );
+}
+
+#[test]
+fn test_nav_tree_render() {
+    let mut tree = FsTree::new();
+    let idx = tree.add("index", FsTree::ROOT);
+    let page = tree.add("page", idx);
+    tree.add("child", page);
+
+    assert_eq!(
+        test_render(super::make_nav_tree(&tree, page)),
+        concat(&[
+            "<div>",
+            "  <a href=\"/index\">index</a>",
+            "  <ul>",
+            &format!("    <li><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{THIS_PAGE_CSS_CLASS}\">page</a>"),
+            "      <ul>",
+            "        <li><a href=\"/index/page/child\">child</a></li>",
+            "      </ul>",
+            "    </li>",
+            "  </ul>",
+            "</div>"
+        ])
+    )
 }

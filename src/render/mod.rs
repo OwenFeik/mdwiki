@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use crate::{
     config::Config,
     fstree::FsTree,
     log::warning,
-    model::{El, Node, Style},
+    model::{Attrs, El, Node, Style},
 };
 
 #[cfg(test)]
@@ -40,22 +42,23 @@ impl Html {
         self.start(tag);
     }
 
-    fn open(&mut self, tag: &str) {
+    fn open(&mut self, tag: &str, attrs: &Attrs) {
         self.start(tag);
-        self.finish();
+        self.finish(attrs);
     }
 
-    fn finish(&mut self) {
+    fn finish(&mut self, attrs: &Attrs) {
+        attrs.iter().for_each(|(k, v)| self.attr(k, v));
         self.push('>');
     }
 
-    fn lopen(&mut self, tag: &str) {
+    fn lopen(&mut self, tag: &str, attrs: &Attrs) {
         self.indent(self.stack.len());
-        self.open(tag);
+        self.open(tag, attrs);
     }
 
-    fn lopenl(&mut self, tag: &str) {
-        self.lopen(tag);
+    fn lopenl(&mut self, tag: &str, attrs: &Attrs) {
+        self.lopen(tag, attrs);
         self.indent(self.stack.len());
     }
 
@@ -167,18 +170,23 @@ pub fn indent(string: &str, by: usize) -> String {
 fn render(node: &Node, html: &mut Html) {
     match node.el() {
         El::Empty => (),
+        El::Div(children) => {
+            html.lopenl("div", node.attrs());
+            render_nodes(children, html);
+            html.lclosel();
+        }
         El::Code(code) => {
-            html.open("code");
+            html.open("code", node.attrs());
             html.push_str(&escape(code));
             html.close();
         }
         El::Codeblock(_lang, code) => {
-            html.lopenl("pre");
+            html.lopenl("pre", node.attrs());
             html.push_str(&indent(&escape(code), html.stack.len()));
             html.lclosel();
         }
         El::Heading(level, children) => {
-            html.lopen(&format!("h{level}"));
+            html.lopen(&format!("h{level}"), node.attrs());
             render_nodes(children, html);
             html.closel();
         }
@@ -187,10 +195,10 @@ fn render(node: &Node, html: &mut Html) {
             html.singleton("img");
             html.attr("src", url);
             html.attr("alt", text);
-            html.finish();
+            html.finish(node.attrs());
         }
         El::Item(children) => {
-            html.lopen("li");
+            html.lopen("li", node.attrs());
             render_nodes(children, html);
             html.close();
         }
@@ -198,12 +206,12 @@ fn render(node: &Node, html: &mut Html) {
             html.space_if_needed();
             html.start("a");
             html.attr("href", &escape(url));
-            html.finish();
+            html.finish(node.attrs());
             html.push_str(text);
             html.close();
         }
         El::List(children) => {
-            html.lopen("ul");
+            html.lopen("ul", node.attrs());
             render_nodes(children, html);
             html.lclosel();
         }
@@ -215,7 +223,7 @@ fn render(node: &Node, html: &mut Html) {
             };
 
             html.space_if_needed();
-            html.open(tag);
+            html.open(tag, node.attrs());
             render_nodes(children, html);
             html.trim_end();
             html.close();
@@ -256,29 +264,41 @@ fn add_page_path(path: &[String], html: &mut Html) {
     }
 }
 
-fn make_nav_subtree(tree: &FsTree, id: usize) -> Vec<Node> {
+const CSS_CLASS_ATTR: &str = "class";
+const THIS_PAGE_CSS_CLASS: &str = "this-page";
+
+fn make_nav_subtree(tree: &FsTree, id: usize, page: usize) -> Node {
     let mut entries = Vec::new();
     if let Some(node) = tree.get(id) {
         if let Some(name) = node.name() {
-            entries.push(Node::link(name, &node.url()))
+            let mut node = Node::link(name, &node.url());
+            if id == page {
+                node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
+            }
+            entries.push(node);
         }
     }
 
     let mut children = Vec::new();
     for child in tree.children(id) {
-        let subtree = make_nav_subtree(tree, child);
-        children.extend(subtree);
+        let subtree = make_nav_subtree(tree, child, page);
+        children.push(subtree);
     }
 
     if !children.is_empty() {
         entries.push(Node::list(children));
     }
 
-    entries
+    Node::item(entries)
 }
 
-fn make_nav_tree(tree: &FsTree) -> Node {
-    Node::list(make_nav_subtree(tree, FsTree::ROOT))
+fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
+    if let El::Item(children) = make_nav_subtree(tree, FsTree::ROOT, page).into_el() {
+        Node::div(children)
+    } else {
+        warning("Failed to generate nav tree.");
+        Node::empty()
+    }
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
@@ -287,19 +307,21 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
     let mut html = Html::new();
     let mut paragraph_open = false;
 
-    html.open("html");
-    html.lopen("head");
+    let empty = &HashMap::new();
+
+    html.open("html", empty);
+    html.lopen("head", empty);
     html.lstart("style");
     html.attr("href", FONT);
     html.attr("rel", "stylesheet");
-    html.finish();
+    html.finish(empty);
     html.close();
-    html.lopenl("style");
+    html.lopenl("style", empty);
     html.push_str(&indent(include_str!("res/style.css"), html.stack.len()));
     html.lclose();
     html.lclose();
-    html.lopen("body");
-    html.lopen("main");
+    html.lopen("body", empty);
+    html.lopen("main", empty);
 
     if let Some(node) = tree.get(page) {
         let path = node.path();
@@ -327,11 +349,16 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
                 }
 
                 if !paragraph_open {
-                    html.lopenl("p");
+                    html.lopenl("p", empty);
                     paragraph_open = true;
                 }
             }
-            El::Codeblock(..) | El::Heading(..) | El::Image(..) | El::List(..) | El::Table(..) => {
+            El::Div(..)
+            | El::Codeblock(..)
+            | El::Heading(..)
+            | El::Image(..)
+            | El::List(..)
+            | El::Table(..) => {
                 if paragraph_open {
                     html.lclosel();
                 }

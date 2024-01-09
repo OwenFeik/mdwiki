@@ -9,9 +9,11 @@ pub enum Style {
 
 pub const HEADING_MAX_LEVEL: u8 = 6;
 
+pub type Attrs = HashMap<String, String>;
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Node {
-    attributes: HashMap<String, String>,
+    attributes: Attrs,
     element: El,
 }
 
@@ -81,12 +83,29 @@ impl Node {
         Self::new(El::Table(children))
     }
 
+    pub fn div(children: Vec<Node>) -> Self {
+        Self::new(El::Div(children))
+    }
+
     pub fn empty() -> Self {
         Self::new(El::Empty)
     }
 
+    pub fn attr(&mut self, key: &str, value: &str) {
+        self.attributes
+            .insert(key.trim().to_string(), value.trim().to_string());
+    }
+
+    pub fn attrs(&self) -> &Attrs {
+        &self.attributes
+    }
+
     pub fn el(&self) -> &El {
         &self.element
+    }
+
+    pub fn into_el(self) -> El {
+        self.element
     }
 
     pub fn el_mut(&mut self) -> &mut El {
@@ -104,6 +123,7 @@ impl Node {
     pub fn el_text(&self) -> Option<&str> {
         match &self.element {
             El::Empty
+            | El::Div(_)
             | El::Item(_)
             | El::List(_)
             | El::Style(_, _)
@@ -120,6 +140,7 @@ impl Node {
     pub fn el_url(&self) -> Option<&str> {
         match &self.element {
             El::Empty
+            | El::Div(_)
             | El::Item(_)
             | El::List(_)
             | El::Style(_, _)
@@ -136,6 +157,7 @@ impl Node {
 #[derive(Debug, Eq, PartialEq)]
 pub enum El {
     Empty,
+    Div(Vec<Node>),                    // (children)
     Code(String),                      // (code)
     Codeblock(Option<String>, String), // (lang, code)
     Heading(u8, Vec<Node>),            // (type, children)
@@ -152,7 +174,8 @@ impl El {
     fn add_text(&mut self, text: &str) {
         match self {
             El::Empty | El::Image(..) | El::Link(..) | El::Table(..) => (),
-            El::Style(_, children)
+            El::Div(children)
+            | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)
             | El::List(children) => children.push(Node::text(text)),
@@ -170,7 +193,8 @@ impl El {
             El::Empty => true,
             El::Image(_, url) => url.is_empty(),
             El::Link(text, _) => text.is_empty(),
-            El::Style(_, children)
+            El::Div(children)
+            | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)
             | El::List(children) => !children.iter().any(|n| !n.is_empty()),
