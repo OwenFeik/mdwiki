@@ -175,20 +175,20 @@ fn test_nav_tree() {
     tree.add("cityb", country);
     let node = super::make_nav_tree(&tree, country);
 
-    let mut country = Node::link("country", "/index/country");
-    country.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
     assert_eq!(
         node,
         Node::div(vec![
             Node::link("index", "/index"),
             Node::list(vec![Node::item(vec![
-                country,
+                Node::link("country", "/index/country")
+                    .with_attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS),
                 Node::list(vec![
                     Node::link("citya", "/index/country/citya"),
                     Node::link("cityb", "/index/country/cityb")
                 ])
             ])])
         ])
+        .with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
     );
 }
 
@@ -202,7 +202,7 @@ fn test_nav_tree_render() {
     assert_eq!(
         test_render(super::make_nav_tree(&tree, page)),
         concat(&[
-            "<div>",
+            &format!("<div {CSS_ID_ATTR}=\"{NAV_TREE_CSS_ID}\">"),
             "  <a href=\"/index\">index</a>",
             "  <ul>",
             &format!("    <li><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{THIS_PAGE_CSS_CLASS}\">page</a>"),

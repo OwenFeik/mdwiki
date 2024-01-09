@@ -49,3 +49,9 @@ a:link {
 a:visited {
     color: var(--a2);
 }
+
+#nav-tree {
+    position: absolute;
+    top: 6rem;
+    left: 0.5rem;
+}

@@ -96,6 +96,11 @@ impl Node {
             .insert(key.trim().to_string(), value.trim().to_string());
     }
 
+    pub fn with_attr(mut self, key: &str, value: &str) -> Self {
+        self.attr(key, value);
+        self
+    }
+
     pub fn attrs(&self) -> &Attrs {
         &self.attributes
     }

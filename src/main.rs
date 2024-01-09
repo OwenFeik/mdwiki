@@ -20,6 +20,19 @@ const INPUT_EXT: &str = "md";
 const RESOURCE_EXTS: &[&str] = &["jpg", "jpeg", "png"];
 const OUTPUT_EXT: &str = "html";
 
+struct Document {
+    fsnode: usize,
+    document: Vec<model::Node>,
+    output: PathBuf,
+}
+
+fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .map(|name| name.starts_with('.'))
+        .unwrap_or(false)
+}
+
 fn create_outdir(outdir: &Path) {
     if std::fs::create_dir_all(outdir).is_err() {
         log::warning(&format!(
@@ -29,36 +42,32 @@ fn create_outdir(outdir: &Path) {
     }
 }
 
-fn process_file(config: &Config, tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) {
+fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) -> Option<Document> {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
         log::error(&format!(
             "Couldn't find file name for file: {}",
             file.display()
         ));
-        return;
+        return None;
     };
 
     let Ok(markdown) = std::fs::read_to_string(file) else {
         log::error(&format!("Failed to read input file: {}", file.display()));
-        return;
+        return None;
     };
 
-    let page = tree.add(name, parent);
-
+    let out_name = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
+    let page = tree.add(&out_name, parent);
     let document = parse::parse_document(&markdown);
-    let html = render::render_document(config, tree, page, &document);
 
     create_outdir(outdir);
-    let output = outdir.join(name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}")));
-    if std::fs::write(&output, html).is_ok() {
-        log::info(&format!(
-            "Rendered {} to {}",
-            file.display(),
-            output.display()
-        ));
-    } else {
-        log::error(&format!("Failed to write file: {}", output.display()));
-    }
+    let output = outdir.join(out_name);
+
+    Some(Document {
+        fsnode: page,
+        document,
+        output,
+    })
 }
 
 fn copy_file(file: &Path, outdir: &Path) {
@@ -84,15 +93,14 @@ fn copy_file(file: &Path, outdir: &Path) {
 }
 
 fn process_directory(
-    config: &Config,
     tree: &mut FsTree,
     parent: usize,
     indir: &Path,
     outdir: &Path,
-) {
+) -> Vec<Document> {
     let Ok(dir) = std::fs::read_dir(indir) else {
         log::error(&format!("Couldn't read directory: {}", indir.display()));
-        return;
+        return Vec::new();
     };
 
     log::info(&format!(
@@ -105,23 +113,43 @@ fn process_directory(
         fail(&format!("Couldn't read file name of {}", indir.display()));
     };
 
+    let mut documents = Vec::new();
     let node = tree.add(name.to_string_lossy(), parent);
     for entry in dir.flatten() {
         if let Ok(filetype) = entry.file_type() {
-            if filetype.is_dir() {
+            let file_path = entry.path();
+            if is_hidden(&file_path) {
+            } else if filetype.is_dir() {
                 let name = entry.file_name();
-                process_directory(config, tree, node, &indir.join(&name), &outdir.join(&name));
+                process_directory(tree, node, &indir.join(&name), &outdir.join(&name));
             } else if filetype.is_file() {
-                let file_path = entry.path();
                 if let Some(Some(ext)) = file_path.extension().map(OsStr::to_str) {
                     if ext == INPUT_EXT {
-                        process_file(config, tree, node, &file_path, outdir);
+                        if let Some(doc) = process_file(tree, node, &file_path, outdir) {
+                            documents.push(doc);
+                        }
                     } else if RESOURCE_EXTS.contains(&ext) {
                         copy_file(&file_path, outdir);
                     }
                 }
             }
         }
+    }
+    documents
+}
+
+fn render_document(config: &Config, tree: &FsTree, doc: &Document) {
+    let html = render::render_document(config, tree, doc.fsnode, &doc.document);
+    if std::fs::write(&doc.output, html).is_ok() {
+        if let Some(fsnode) = tree.get(doc.fsnode) {
+            log::info(&format!(
+                "Rendered {} to {}",
+                fsnode.path().join("/"),
+                doc.output.display()
+            ));
+        }
+    } else {
+        log::error(&format!("Failed to write file: {}", doc.output.display()));
     }
 }
 
@@ -140,24 +168,30 @@ fn main() {
     };
 
     let config = Config::default();
+    let mut tree = FsTree::new();
 
     if metadata.is_file() {
         let path = PathBuf::from(arg);
         let Some(parent) = path.parent() else {
             fail("Couldn't find parent directory of input file.");
         };
-        process_file(&config, &mut FsTree::new(), 0, &path, parent);
+
+        if let Some(doc) = process_file(&mut tree, 0, &path, parent) {
+            render_document(&config, &tree, &doc)
+        } else {
+            fail("Unable to process file for rendering.");
+        }
     } else if metadata.is_dir() {
         let indir = PathBuf::from(arg);
         let Some(Some(dirname)) = indir.file_name().map(OsStr::to_str) else {
             fail("Couldn't find filename of input directory.");
         };
 
-        let mut tree = FsTree::new();
-
         if let Some(parent) = indir.parent() {
             let outdir = parent.join(format!("{dirname}-{OUTPUT_EXT}"));
-            process_directory(&config, &mut tree, 0, &indir, &outdir);
+            for doc in process_directory(&mut tree, 0, &indir, &outdir) {
+                render_document(&config, &tree, &doc);
+            }
         } else {
             fail("Couldn't choose an output directory for files.");
         }

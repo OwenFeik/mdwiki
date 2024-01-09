@@ -265,7 +265,9 @@ fn add_page_path(path: &[String], html: &mut Html) {
 }
 
 const CSS_CLASS_ATTR: &str = "class";
+const CSS_ID_ATTR: &str = "id";
 const THIS_PAGE_CSS_CLASS: &str = "this-page";
+const NAV_TREE_CSS_ID: &str = "nav-tree";
 
 fn make_nav_subtree(tree: &FsTree, id: usize, page: usize) -> Node {
     let mut entries = Vec::new();
@@ -294,7 +296,7 @@ fn make_nav_subtree(tree: &FsTree, id: usize, page: usize) -> Node {
 
 fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
     if let El::Item(children) = make_nav_subtree(tree, FsTree::ROOT, page).into_el() {
-        Node::div(children)
+        Node::div(children).with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
     } else {
         warning("Failed to generate nav tree.");
         Node::empty()
@@ -321,6 +323,11 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
     html.lclose();
     html.lclose();
     html.lopen("body", empty);
+
+    if config.nav_tree {
+        render(&make_nav_tree(tree, page), &mut html);
+    }
+
     html.lopen("main", empty);
 
     if let Some(node) = tree.get(page) {
