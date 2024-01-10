@@ -94,6 +94,7 @@ fn copy_file(file: &Path, outdir: &Path) {
 
 fn process_directory(
     tree: &mut FsTree,
+    tree_exclude: bool,
     parent: usize,
     indir: &Path,
     outdir: &Path,
@@ -113,15 +114,21 @@ fn process_directory(
         fail(&format!("Couldn't read file name of {}", indir.display()));
     };
 
+    let node = if tree_exclude {
+        FsTree::ROOT
+    } else {
+        tree.add(name.to_string_lossy(), parent)
+    };
+
     let mut documents = Vec::new();
-    let node = tree.add(name.to_string_lossy(), parent);
     for entry in dir.flatten() {
+        dbg!(&entry);
         if let Ok(filetype) = entry.file_type() {
             let file_path = entry.path();
             if is_hidden(&file_path) {
             } else if filetype.is_dir() {
                 let name = entry.file_name();
-                process_directory(tree, node, &indir.join(&name), &outdir.join(&name));
+                process_directory(tree, false, node, &indir.join(&name), &outdir.join(&name));
             } else if filetype.is_file() {
                 if let Some(Some(ext)) = file_path.extension().map(OsStr::to_str) {
                     if ext == INPUT_EXT {
@@ -189,7 +196,7 @@ fn main() {
 
         if let Some(parent) = indir.parent() {
             let outdir = parent.join(format!("{dirname}-{OUTPUT_EXT}"));
-            for doc in process_directory(&mut tree, 0, &indir, &outdir) {
+            for doc in process_directory(&mut tree, true, 0, &indir, &outdir) {
                 render_document(&config, &tree, &doc);
             }
         } else {

@@ -26,7 +26,13 @@ impl FsTree {
     pub const ROOT: usize = 0;
 
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self {
+            nodes: vec![FsNode {
+                id: Self::ROOT,
+                path: Vec::new(),
+                parent: None,
+            }],
+        }
     }
 
     pub fn add<S: ToString>(&mut self, name: S, parent: usize) -> usize {
