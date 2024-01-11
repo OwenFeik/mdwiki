@@ -7,5 +7,4 @@
     similar simple mapping.
 * Warn for missing files when processing links.
 * Links have an unnecessary space after them.
-* Breadcrumbs should use titles rather than file names.
 * Generate index pages if not found. 

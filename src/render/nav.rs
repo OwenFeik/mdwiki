@@ -9,14 +9,21 @@ const CSS_ID_ATTR: &str = "id";
 const THIS_PAGE_CSS_CLASS: &str = "this-page";
 const NAV_TREE_CSS_ID: &str = "nav-tree";
 
-fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
-    const INDEX_FILE: &str = "index.html";
+fn make_node_link(fsnode: &FsNode) -> Node {
+    Node::link(fsnode.title(), &fsnode.url())
+}
 
+fn is_index_file(fsnode: &FsNode) -> bool {
+    const INDEX_FILE: &str = "index.html";
+    !fsnode.is_dir() && fsnode.name().map(String::as_str) == Some(INDEX_FILE)
+}
+
+fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
     let mut entries = Vec::new();
 
     let mut children = Vec::new();
-    for child in tree.children(fsnode.id()) {
-        if !child.is_dir() && child.name().map(String::as_str) == Some(INDEX_FILE) {
+    for child in tree.children(fsnode.id) {
+        if is_index_file(child) {
             fsnode = child;
         } else {
             let subtree = make_nav_subtree(tree, child, doc);
@@ -26,8 +33,8 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
         }
     }
 
-    let mut node = Node::link(fsnode.title(), &fsnode.url());
-    if fsnode.id() == doc.fsnode {
+    let mut node = make_node_link(fsnode);
+    if fsnode.id == doc.fsnode {
         node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
     }
     entries.push(node);
@@ -50,6 +57,36 @@ pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
         }
     }
     Node::list(items).with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
+}
+
+pub fn make_page_path(tree: &FsTree, doc: &Document) -> Node {
+    let mut nodes = Vec::new();
+    let mut fsnode = tree.get(doc.fsnode);
+    while let Some(entry) = fsnode
+        && !entry.is_root()
+    {
+        nodes.push(make_node_link(entry));
+        nodes.push(Node::text("/"));
+
+        if is_index_file(entry) {
+            // Skip indexed directory.
+            fsnode = entry
+                .parent
+                .and_then(|id| tree.get(id))
+                .and_then(|parent| parent.parent)
+                .and_then(|id| tree.get(id));
+        } else {
+            fsnode = entry.parent.and_then(|id| tree.get(id));
+        }
+    }
+    nodes.truncate(nodes.len() - 1);
+    nodes.reverse();
+
+    if nodes.len() > 1 {
+        Node::heading(3, nodes)
+    } else {
+        Node::empty()
+    }
 }
 
 #[cfg(test)]
@@ -123,6 +160,21 @@ mod test {
         assert_eq!(
             test_render(super::make_nav_tree(&tree, &make_doc(node, "dir"))),
             "<ul id=\"nav-tree\">\n</ul>"
-        )
+        );
+    }
+
+    #[test]
+    fn test_index_replaces_dir() {
+        let mut tree = FsTree::new();
+        let dir = tree.add_dir("dir", FsTree::ROOT);
+        let idx = tree.add("index.html", dir, Some("Index".to_string()));
+        assert_eq!(
+            test_render(super::make_nav_tree(&tree, &make_doc(idx, "Index"))),
+            concat(&[
+                "<ul id=\"nav-tree\">",
+                "  <li><a href=\"/dir/index.html\" class=\"this-page\">Index</a></li>",
+                "</ul>"
+            ])
+        );
     }
 }

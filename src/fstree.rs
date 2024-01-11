@@ -1,21 +1,19 @@
+#[derive(Debug)]
 pub enum NodeType {
     File,
     Directory,
 }
 
+#[derive(Debug)]
 pub struct FsNode {
     ty: NodeType,
-    id: usize,
+    pub id: usize,
     path: Vec<String>,
-    parent: Option<usize>,
+    pub parent: Option<usize>,
     title: String,
 }
 
 impl FsNode {
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
     pub fn path(&self) -> &[String] {
         &self.path
     }
@@ -34,6 +32,10 @@ impl FsNode {
 
     pub fn is_dir(&self) -> bool {
         matches!(self.ty, NodeType::Directory)
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.id == FsTree::ROOT
     }
 }
 

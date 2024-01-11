@@ -254,17 +254,8 @@ fn add_page_heading(path: &[String], html: &mut Html) {
     }
 }
 
-fn add_page_path(path: &[String], html: &mut Html) {
-    let n = path.len();
-    if n > 1 {
-        let mut nodes = Vec::new();
-        for (i, name) in path.iter().enumerate() {
-            let url = "../".repeat(n - 1 - i).to_string();
-            nodes.push(Node::text("/"));
-            nodes.push(Node::link(name, &url));
-        }
-        render(&Node::heading(3, nodes), html);
-    }
+fn add_page_path(tree: &FsTree, doc: &Document, html: &mut Html) {
+    render(&nav::make_page_path(tree, doc), html);
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
@@ -295,13 +286,12 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     html.lopen("main", empty);
 
     if let Some(node) = tree.get(doc.fsnode) {
-        let path = node.path();
         if config.path {
-            add_page_path(path, &mut html);
+            add_page_path(tree, doc, &mut html);
         }
 
         if config.page_heading {
-            add_page_heading(path, &mut html);
+            add_page_heading(node.path(), &mut html);
         }
     }
 
