@@ -1,7 +1,14 @@
+pub enum NodeType {
+    File,
+    Directory,
+}
+
 pub struct FsNode {
+    ty: NodeType,
     id: usize,
     path: Vec<String>,
     parent: Option<usize>,
+    title: String,
 }
 
 impl FsNode {
@@ -13,8 +20,8 @@ impl FsNode {
         format!("/{}", self.path.join("/"))
     }
 
-    pub fn name(&self) -> Option<&str> {
-        self.path.last().map(|x| x.as_str())
+    pub fn title(&self) -> &str {
+        &self.title
     }
 }
 
@@ -28,25 +35,50 @@ impl FsTree {
     pub fn new() -> Self {
         Self {
             nodes: vec![FsNode {
+                ty: NodeType::Directory,
                 id: Self::ROOT,
                 path: Vec::new(),
                 parent: None,
+                title: "ROOT".to_string(),
             }],
         }
     }
 
-    pub fn add<S: ToString>(&mut self, name: S, parent: usize) -> usize {
-        let id = self.nodes.len();
-
-        let (path, parent) = if let Some(node) = self.nodes.get(parent) {
+    fn path<S: ToString>(&self, name: S, parent: usize) -> (Vec<String>, Option<usize>) {
+        if let Some(node) = self.nodes.get(parent) {
             let mut path: Vec<String> = node.path().into();
             path.push(name.to_string());
             (path, Some(parent))
         } else {
             (vec![name.to_string()], None)
-        };
+        }
+    }
 
-        self.nodes.push(FsNode { id, path, parent });
+    pub fn add<S: ToString>(&mut self, name: S, parent: usize, title: Option<String>) -> usize {
+        let id = self.nodes.len();
+        let name = name.to_string();
+        let (path, parent) = self.path(name.clone(), parent);
+        self.nodes.push(FsNode {
+            ty: NodeType::File,
+            id,
+            path,
+            parent,
+            title: title.map(|s| s.to_string()).unwrap_or(name),
+        });
+        id
+    }
+
+    pub fn add_dir<S: ToString>(&mut self, name: S, parent: usize) -> usize {
+        let id = self.nodes.len();
+        let title = name.to_string();
+        let (path, parent) = self.path(name, parent);
+        self.nodes.push(FsNode {
+            ty: NodeType::Directory,
+            id,
+            path,
+            parent,
+            title,
+        });
         id
     }
 

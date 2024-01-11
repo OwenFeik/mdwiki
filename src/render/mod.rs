@@ -5,7 +5,10 @@ use crate::{
     fstree::FsTree,
     log::warning,
     model::{Attrs, El, Node, Style},
+    Document,
 };
+
+mod nav;
 
 #[cfg(test)]
 mod test;
@@ -264,48 +267,9 @@ fn add_page_path(path: &[String], html: &mut Html) {
     }
 }
 
-const CSS_CLASS_ATTR: &str = "class";
-const CSS_ID_ATTR: &str = "id";
-const THIS_PAGE_CSS_CLASS: &str = "this-page";
-const NAV_TREE_CSS_ID: &str = "nav-tree";
-
-fn make_nav_subtree(tree: &FsTree, id: usize, page: usize) -> Node {
-    let mut entries = Vec::new();
-    if let Some(node) = tree.get(id) {
-        if let Some(name) = node.name() {
-            let mut node = Node::link(name, &node.url());
-            if id == page {
-                node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
-            }
-            entries.push(node);
-        }
-    }
-
-    let mut children = Vec::new();
-    for child in tree.children(id) {
-        let subtree = make_nav_subtree(tree, child, page);
-        children.push(subtree);
-    }
-
-    if !children.is_empty() {
-        entries.push(Node::list(children));
-    }
-
-    Node::item(entries)
-}
-
-fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
-    if let El::Item(children) = make_nav_subtree(tree, FsTree::ROOT, page).into_el() {
-        Node::div(children).with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
-    } else {
-        warning("Failed to generate nav tree.");
-        Node::empty()
-    }
-}
-
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
-pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Node]) -> String {
+pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String {
     let mut html = Html::new();
     let mut paragraph_open = false;
 
@@ -325,12 +289,12 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
     html.lopen("body", empty);
 
     if config.nav_tree {
-        render(&make_nav_tree(tree, page), &mut html);
+        render(&nav::make_nav_tree(tree, doc), &mut html);
     }
 
     html.lopen("main", empty);
 
-    if let Some(node) = tree.get(page) {
+    if let Some(node) = tree.get(doc.fsnode) {
         let path = node.path();
         if config.path {
             add_page_path(path, &mut html);
@@ -342,7 +306,7 @@ pub fn render_document(config: &Config, tree: &FsTree, page: usize, nodes: &[Nod
     }
 
     let mut prev: Option<&Node> = None;
-    for node in nodes {
+    for node in &doc.document {
         match node.el() {
             El::Code(..) | El::Link(..) | El::Style(..) | El::Text(..) => {
                 if paragraph_open {

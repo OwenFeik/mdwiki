@@ -17,7 +17,7 @@ fn style() -> String {
     style
 }
 
-fn concat(strings: &[&str]) -> String {
+pub fn concat(strings: &[&str]) -> String {
     let mut string = String::new();
     for s in strings {
         if !string.is_empty() {
@@ -28,7 +28,7 @@ fn concat(strings: &[&str]) -> String {
     string
 }
 
-fn test_render(node: Node) -> String {
+pub fn test_render(node: Node) -> String {
     let mut html = super::Html::new();
     render(&node, &mut html);
     html.content.trim().to_string()
@@ -47,14 +47,21 @@ This is a test markdown file. It should
 ## Handle Subheadings
 "#;
 
+fn make_doc(document: Vec<Node>) -> Document {
+    Document {
+        fsnode: 0,
+        output: std::path::PathBuf::new(),
+        document,
+    }
+}
+
 #[test]
 fn test_render_heading() {
     assert_eq!(
         super::render_document(
             &Config::none(),
             &FsTree::new(),
-            0,
-            &[Node::heading(1, vec![Node::text("Hello World")])]
+            &make_doc(vec![Node::heading(1, vec![Node::text("Hello World")])])
         ),
         concat(&[
             "<html>",
@@ -115,8 +122,7 @@ fn test_integration() {
         super::render_document(
             &Config::none(),
             &FsTree::new(),
-            0,
-            &crate::parse::parse_document(MD.trim())
+            &make_doc(crate::parse::parse_document(MD.trim()))
         ),
         concat(&[
             "<html>",
@@ -164,54 +170,4 @@ fn test_code_block() {
         html.content.trim(),
         "<pre>\n  print(&quot;Hello World&quot;)\n</pre>"
     );
-}
-
-#[test]
-fn test_nav_tree() {
-    let mut tree = FsTree::new();
-    let root = tree.add("index", FsTree::ROOT);
-    let country = tree.add("country", root);
-    tree.add("citya", country);
-    tree.add("cityb", country);
-    let node = super::make_nav_tree(&tree, country);
-
-    assert_eq!(
-        node,
-        Node::div(vec![
-            Node::link("index", "/index"),
-            Node::list(vec![Node::item(vec![
-                Node::link("country", "/index/country")
-                    .with_attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS),
-                Node::list(vec![
-                    Node::link("citya", "/index/country/citya"),
-                    Node::link("cityb", "/index/country/cityb")
-                ])
-            ])])
-        ])
-        .with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
-    );
-}
-
-#[test]
-fn test_nav_tree_render() {
-    let mut tree = FsTree::new();
-    let idx = tree.add("index", FsTree::ROOT);
-    let page = tree.add("page", idx);
-    tree.add("child", page);
-
-    assert_eq!(
-        test_render(super::make_nav_tree(&tree, page)),
-        concat(&[
-            &format!("<div {CSS_ID_ATTR}=\"{NAV_TREE_CSS_ID}\">"),
-            "  <a href=\"/index\">index</a>",
-            "  <ul>",
-            &format!("    <li><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{THIS_PAGE_CSS_CLASS}\">page</a>"),
-            "      <ul>",
-            "        <li><a href=\"/index/page/child\">child</a></li>",
-            "      </ul>",
-            "    </li>",
-            "  </ul>",
-            "</div>"
-        ])
-    )
 }

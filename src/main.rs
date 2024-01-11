@@ -3,6 +3,7 @@
 
 use std::{
     ffi::OsStr,
+    fmt::Debug,
     path::{Path, PathBuf},
 };
 
@@ -22,8 +23,17 @@ const OUTPUT_EXT: &str = "html";
 
 struct Document {
     fsnode: usize,
-    document: Vec<model::Node>,
     output: PathBuf,
+    document: Vec<model::Node>,
+}
+
+impl Debug for Document {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Document")
+            .field("fsnode", &self.fsnode)
+            .field("output", &self.output)
+            .finish()
+    }
 }
 
 fn is_hidden(path: &Path) -> bool {
@@ -42,6 +52,20 @@ fn create_outdir(outdir: &Path) {
     }
 }
 
+fn document_title(nodes: &[model::Node]) -> Option<String> {
+    for node in nodes {
+        if let model::El::Heading(1, children) = node.el() {
+            for node in children {
+                if let model::El::Text(text) = node.el() {
+                    return Some(text.clone());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) -> Option<Document> {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
         log::error(&format!(
@@ -57,8 +81,8 @@ fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) ->
     };
 
     let out_name = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
-    let page = tree.add(&out_name, parent);
     let document = parse::parse_document(&markdown);
+    let page = tree.add(&out_name, parent, document_title(&document));
 
     create_outdir(outdir);
     let output = outdir.join(out_name);
@@ -117,18 +141,20 @@ fn process_directory(
     let node = if tree_exclude {
         FsTree::ROOT
     } else {
-        tree.add(name.to_string_lossy(), parent)
+        let title = name.to_string_lossy();
+        tree.add(&title, parent, Some(title.to_string()))
     };
 
     let mut documents = Vec::new();
     for entry in dir.flatten() {
-        dbg!(&entry);
         if let Ok(filetype) = entry.file_type() {
             let file_path = entry.path();
             if is_hidden(&file_path) {
             } else if filetype.is_dir() {
                 let name = entry.file_name();
-                process_directory(tree, false, node, &indir.join(&name), &outdir.join(&name));
+                let docs =
+                    process_directory(tree, false, node, &indir.join(&name), &outdir.join(&name));
+                documents.extend(docs);
             } else if filetype.is_file() {
                 if let Some(Some(ext)) = file_path.extension().map(OsStr::to_str) {
                     if ext == INPUT_EXT {
@@ -146,7 +172,7 @@ fn process_directory(
 }
 
 fn render_document(config: &Config, tree: &FsTree, doc: &Document) {
-    let html = render::render_document(config, tree, doc.fsnode, &doc.document);
+    let html = render::render_document(config, tree, doc);
     if std::fs::write(&doc.output, html).is_ok() {
         if let Some(fsnode) = tree.get(doc.fsnode) {
             log::info(&format!(
