@@ -82,6 +82,7 @@ fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) ->
 
     let out_name = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
     let document = parse::parse_document(&markdown);
+
     let page = tree.add(&out_name, parent, document_title(&document));
 
     create_outdir(outdir);
@@ -141,8 +142,7 @@ fn process_directory(
     let node = if tree_exclude {
         FsTree::ROOT
     } else {
-        let title = name.to_string_lossy();
-        tree.add(&title, parent, Some(title.to_string()))
+        tree.add_dir(name.to_string_lossy(), parent)
     };
 
     let mut documents = Vec::new();

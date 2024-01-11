@@ -6,5 +6,6 @@
 * Allow omission of links; automatically link to `snakecase(title)` or some
     similar simple mapping.
 * Warn for missing files when processing links.
-* Links start on a new line.
-* Headings have a leading space.
+* Links have an unnecessary space after them.
+* Breadcrumbs should use titles rather than file names.
+* Generate index pages if not found. 

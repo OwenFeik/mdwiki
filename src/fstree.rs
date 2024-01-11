@@ -12,8 +12,16 @@ pub struct FsNode {
 }
 
 impl FsNode {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
     pub fn path(&self) -> &[String] {
         &self.path
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.path().last()
     }
 
     pub fn url(&self) -> String {
@@ -22,6 +30,10 @@ impl FsNode {
 
     pub fn title(&self) -> &str {
         &self.title
+    }
+
+    pub fn is_dir(&self) -> bool {
+        matches!(self.ty, NodeType::Directory)
     }
 }
 
@@ -86,11 +98,7 @@ impl FsTree {
         self.nodes.get(id)
     }
 
-    pub fn children(&self, id: usize) -> Vec<usize> {
-        self.nodes
-            .iter()
-            .filter(|n| n.parent == Some(id))
-            .map(|n| n.id)
-            .collect()
+    pub fn children(&self, id: usize) -> Vec<&FsNode> {
+        self.nodes.iter().filter(|n| n.parent == Some(id)).collect()
     }
 }

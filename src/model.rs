@@ -109,10 +109,6 @@ impl Node {
         &self.element
     }
 
-    pub fn into_el(self) -> El {
-        self.element
-    }
-
     pub fn el_mut(&mut self) -> &mut El {
         &mut self.element
     }

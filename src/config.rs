@@ -5,6 +5,7 @@ pub struct Config {
 }
 
 impl Config {
+    #[cfg(test)]
     pub fn none() -> Self {
         Self {
             nav_tree: false,

@@ -1,7 +1,6 @@
 use crate::{
-    fstree::FsTree,
-    log,
-    model::{El, Node},
+    fstree::{FsNode, FsTree},
+    model::Node,
     Document,
 };
 
@@ -10,24 +9,33 @@ const CSS_ID_ATTR: &str = "id";
 const THIS_PAGE_CSS_CLASS: &str = "this-page";
 const NAV_TREE_CSS_ID: &str = "nav-tree";
 
-fn make_nav_subtree(tree: &FsTree, id: usize, doc: &Document) -> Node {
+fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
+    const INDEX_FILE: &str = "index.html";
+
     let mut entries = Vec::new();
-    if let Some(node) = tree.get(id) {
-        let mut node = Node::link(node.title(), &node.url());
-        if id == doc.fsnode {
-            node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
-        }
-        entries.push(node);
-    }
 
     let mut children = Vec::new();
-    for child in tree.children(id) {
-        let subtree = make_nav_subtree(tree, child, doc);
-        children.push(subtree);
+    for child in tree.children(fsnode.id()) {
+        if !child.is_dir() && child.name().map(String::as_str) == Some(INDEX_FILE) {
+            fsnode = child;
+        } else {
+            let subtree = make_nav_subtree(tree, child, doc);
+            if !subtree.is_empty() {
+                children.push(subtree);
+            }
+        }
     }
+
+    let mut node = Node::link(fsnode.title(), &fsnode.url());
+    if fsnode.id() == doc.fsnode {
+        node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
+    }
+    entries.push(node);
 
     if !children.is_empty() {
         entries.push(Node::list(children));
+    } else if fsnode.is_dir() {
+        return Node::empty();
     }
 
     Node::item(entries)
@@ -36,7 +44,10 @@ fn make_nav_subtree(tree: &FsTree, id: usize, doc: &Document) -> Node {
 pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
     let mut items = Vec::new();
     for child in tree.children(FsTree::ROOT) {
-        items.push(make_nav_subtree(tree, child, doc));
+        let subtree = make_nav_subtree(tree, child, doc);
+        if !subtree.is_empty() {
+            items.push(subtree);
+        }
     }
     Node::list(items).with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
 }
@@ -102,6 +113,16 @@ mod test {
                 "  </li>",
                 "</ul>"
             ])
+        )
+    }
+
+    #[test]
+    fn test_empty_dir_excluded() {
+        let mut tree = FsTree::new();
+        let node = tree.add_dir("dir", FsTree::ROOT);
+        assert_eq!(
+            test_render(super::make_nav_tree(&tree, &make_doc(node, "dir"))),
+            "<ul id=\"nav-tree\">\n</ul>"
         )
     }
 }
