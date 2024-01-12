@@ -22,22 +22,22 @@ impl Display for Level {
     }
 }
 
-fn log(level: Level, msg: &str) {
-    println!("{level} {msg}");
+fn log<S: AsRef<str>>(level: Level, msg: S) {
+    println!("{level} {}", msg.as_ref());
 }
 
-pub fn debug(msg: &str) {
+pub fn debug<S: AsRef<str>>(msg: S) {
     log(Level::Debug, msg);
 }
 
-pub fn info(msg: &str) {
+pub fn info<S: AsRef<str>>(msg: S) {
     log(Level::Info, msg);
 }
 
-pub fn warning(msg: &str) {
+pub fn warning<S: AsRef<str>>(msg: S) {
     log(Level::Warning, msg);
 }
 
-pub fn error(msg: &str) {
+pub fn error<S: AsRef<str>>(msg: S) {
     log(Level::Error, msg);
 }

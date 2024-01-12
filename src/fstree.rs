@@ -1,3 +1,5 @@
+use crate::INDEX_FILE;
+
 #[derive(Debug)]
 pub enum NodeType {
     File,
@@ -37,6 +39,10 @@ impl FsNode {
     pub fn is_root(&self) -> bool {
         self.id == FsTree::ROOT
     }
+
+    pub fn is_index_file(&self) -> bool {
+        !self.is_dir() && self.name().map(String::as_str) == Some(INDEX_FILE)
+    }
 }
 
 pub struct FsTree {
@@ -53,7 +59,7 @@ impl FsTree {
                 id: Self::ROOT,
                 path: Vec::new(),
                 parent: None,
-                title: "ROOT".to_string(),
+                title: "Index".to_string(),
             }],
         }
     }
@@ -102,5 +108,9 @@ impl FsTree {
 
     pub fn children(&self, id: usize) -> Vec<&FsNode> {
         self.nodes.iter().filter(|n| n.parent == Some(id)).collect()
+    }
+
+    pub fn nodes(&self) -> &[FsNode] {
+        &self.nodes
     }
 }

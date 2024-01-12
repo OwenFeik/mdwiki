@@ -7,15 +7,31 @@ use crate::{
 const CSS_CLASS_ATTR: &str = "class";
 const CSS_ID_ATTR: &str = "id";
 const THIS_PAGE_CSS_CLASS: &str = "this-page";
-const NAV_TREE_CSS_ID: &str = "nav-tree";
+const CSS_ID_NAV_TREE: &str = "nav-tree";
+const CSS_ID_NAV_BREADCRUMB: &str = "nav-breadcrumb";
 
-fn make_node_link(fsnode: &FsNode) -> Node {
-    Node::link(fsnode.title(), &fsnode.url())
+fn capitalise_word(word: &str) -> String {
+    match word {
+        "a" | "and" | "at" | "is" | "of" | "to" => word.to_string(),
+        _ if !word.is_empty() => format!(
+            "{}{}",
+            word.chars().next().unwrap().to_uppercase(),
+            &word[1..]
+        ),
+        _ => word.to_string(),
+    }
 }
 
-fn is_index_file(fsnode: &FsNode) -> bool {
-    const INDEX_FILE: &str = "index.html";
-    !fsnode.is_dir() && fsnode.name().map(String::as_str) == Some(INDEX_FILE)
+fn capitalise(title: &str) -> String {
+    title
+        .split(|c| c == ' ' || c == '-' || c == '_')
+        .map(capitalise_word)
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+fn make_node_link(fsnode: &FsNode) -> Node {
+    Node::link(&capitalise(fsnode.title()), &fsnode.url())
 }
 
 fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
@@ -23,7 +39,7 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
 
     let mut children = Vec::new();
     for child in tree.children(fsnode.id) {
-        if is_index_file(child) {
+        if child.is_index_file() {
             fsnode = child;
         } else {
             let subtree = make_nav_subtree(tree, child, doc);
@@ -56,19 +72,19 @@ pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
             items.push(subtree);
         }
     }
-    Node::list(items).with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
+    Node::list(items).with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
 }
 
-pub fn make_page_path(tree: &FsTree, doc: &Document) -> Node {
+pub fn make_nav_breadcrumb(tree: &FsTree, fsnode: &FsNode) -> Node {
     let mut nodes = Vec::new();
-    let mut fsnode = tree.get(doc.fsnode);
+    let mut fsnode = fsnode.parent.and_then(|id| tree.get(id));
     while let Some(entry) = fsnode
         && !entry.is_root()
     {
-        nodes.push(make_node_link(entry));
         nodes.push(Node::text("/"));
+        nodes.push(make_node_link(entry));
 
-        if is_index_file(entry) {
+        if entry.is_index_file() {
             // Skip indexed directory.
             fsnode = entry
                 .parent
@@ -79,14 +95,20 @@ pub fn make_page_path(tree: &FsTree, doc: &Document) -> Node {
             fsnode = entry.parent.and_then(|id| tree.get(id));
         }
     }
-    nodes.truncate(nodes.len() - 1);
     nodes.reverse();
 
-    if nodes.len() > 1 {
-        Node::heading(3, nodes)
+    if nodes.len() > 2 {
+        Node::heading(3, nodes).with_attr("id", CSS_ID_NAV_BREADCRUMB)
     } else {
         Node::empty()
     }
+}
+
+pub fn create_index(fsnode: &FsNode, children: &[&FsNode]) -> Vec<Node> {
+    vec![
+        Node::heading(1, vec![Node::text(&capitalise(fsnode.title()))]),
+        Node::list(children.iter().map(|n| make_node_link(n)).collect()),
+    ]
 }
 
 #[cfg(test)]
@@ -114,17 +136,17 @@ mod test {
         assert_eq!(
             node,
             Node::list(vec![Node::item(vec![
-                Node::link("index", "/index"),
+                Node::link("Index", "/index"),
                 Node::list(vec![Node::item(vec![
                     Node::link("Country!", "/index/country")
                         .with_attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS),
                     Node::list(vec![
-                        Node::link("citya", "/index/country/citya"),
-                        Node::link("cityb", "/index/country/cityb")
+                        Node::link("Citya", "/index/country/citya"),
+                        Node::link("Cityb", "/index/country/cityb")
                     ])
                 ])])
             ])])
-            .with_attr(CSS_ID_ATTR, NAV_TREE_CSS_ID)
+            .with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
         );
     }
 
@@ -138,12 +160,12 @@ mod test {
         assert_eq!(
             test_render(super::make_nav_tree(&tree, &make_doc(page, "Page Title"))),
             concat(&[
-                &format!("<ul {CSS_ID_ATTR}=\"{NAV_TREE_CSS_ID}\">"),
-                "  <li><a href=\"/index\">index</a>",
+                &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
+                "  <li><a href=\"/index\">Index</a>",
                 "    <ul>",
                 &format!("      <li><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{THIS_PAGE_CSS_CLASS}\">Page Title</a>"),
                 "        <ul>",
-                "          <li><a href=\"/index/page/child\">child</a></li>",
+                "          <li><a href=\"/index/page/child\">Child</a></li>",
                 "        </ul>",
                 "      </li>",
                 "    </ul>",
@@ -176,5 +198,13 @@ mod test {
                 "</ul>"
             ])
         );
+    }
+
+    #[test]
+    fn test_capitalise() {
+        assert_eq!(capitalise("tree at hill"), "Tree at Hill");
+        assert_eq!(capitalise("sword of killing"), "Sword of Killing");
+        assert_eq!(capitalise("the big town"), "The Big Town");
+        assert_eq!(capitalise("magic is a resource"), "Magic is a Resource");
     }
 }

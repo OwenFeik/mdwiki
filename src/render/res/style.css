@@ -55,3 +55,15 @@ a:visited {
     top: 6rem;
     left: 0.5rem;
 }
+
+#nav-breadcrumb {
+    filter: saturate(50%);
+    margin-bottom: -1rem;
+    opacity: 0.5;
+    transition: filter 0.5s, opacity 0.5s;
+}
+
+#nav-breadcrumb:hover {
+    filter: saturate(100%);
+    opacity: 1;
+}

@@ -13,6 +13,8 @@ mod nav;
 #[cfg(test)]
 mod test;
 
+pub use self::nav::create_index;
+
 const TABSIZE: usize = 2;
 
 struct Html {
@@ -255,7 +257,14 @@ fn add_page_heading(path: &[String], html: &mut Html) {
 }
 
 fn add_page_path(tree: &FsTree, doc: &Document, html: &mut Html) {
-    render(&nav::make_page_path(tree, doc), html);
+    if let Some(fsnode) = tree.get(doc.fsnode) {
+        render(&nav::make_nav_breadcrumb(tree, fsnode), html);
+    } else {
+        warning(format!(
+            "Failed to add page path for {}, FsNode not found.",
+            doc.output.display()
+        ))
+    }
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
