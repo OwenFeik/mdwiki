@@ -10,6 +10,8 @@ body {
     --bg: #EADEDA;
     --a1: #F18F01;
     --a2: #5A352A;
+    --trans: 0.3s;
+    --nav-tree-width: 400px;
 
     color: var(--fg1);
     background-color: var(--bg);
@@ -24,12 +26,21 @@ h6 {
     color: var(--fg2);
 }
 
+#content {
+    position: absolute;
+    left: var(--nav-tree-width);
+    width: calc(100% - var(--nav-tree-width));
+}
+
 main {
     display: flex;
     flex-direction: column;
-    max-width: min(800px, 100%);
-    padding-left: calc((100% - min(800px, 100%)) / 2);
-    padding-right: calc((100% - min(800px, 100%)) / 2);
+
+    --w: 800px;
+    --excess: calc(100% - var(--w));
+    max-width: var(--w);
+    padding-left: calc((var(--excess) - var(--nav-tree-width)) / 2);
+    padding-right: calc(var(--excess) / 2);
 }
 
 img {
@@ -52,15 +63,16 @@ a:visited {
 
 #nav-tree {
     position: absolute;
-    top: 6rem;
-    left: 0.5rem;
+    padding-top: 6rem;
+    padding-left: 0.5rem;
+    width: var(--nav-tree-width);
 }
 
 #nav-breadcrumb {
     filter: saturate(50%);
     margin-bottom: -1rem;
     opacity: 0.5;
-    transition: filter 0.5s, opacity 0.5s;
+    transition: filter var(--trans), opacity var(--trans);
 }
 
 #nav-breadcrumb:hover {

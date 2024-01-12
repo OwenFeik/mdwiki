@@ -276,7 +276,14 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     let empty = &HashMap::new();
 
     html.open("html", empty);
-    html.lopen("head", empty);
+    html.lopenl("head", empty);
+
+    if let Some(text) = tree.get(doc.fsnode).map(|n| n.title()) {
+        html.open("title", empty);
+        render(&Node::text(text), &mut html);
+        html.close();
+    }
+
     html.lstart("style");
     html.attr("href", FONT);
     html.attr("rel", "stylesheet");
@@ -292,6 +299,9 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
         render(&nav::make_nav_tree(tree, doc), &mut html);
     }
 
+    html.start("div");
+    html.attr("id", "content");
+    html.finish(empty);
     html.lopen("main", empty);
 
     if let Some(node) = tree.get(doc.fsnode) {
@@ -342,6 +352,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
         prev = Some(node);
     }
 
+    html.lclose();
     html.lclose();
     html.lclose();
     html.lclose();

@@ -7,4 +7,3 @@
     similar simple mapping.
 * Warn for missing files when processing links.
 * Links have an unnecessary space after them.
-* Generate index pages if not found. 

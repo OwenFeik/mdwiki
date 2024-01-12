@@ -17,6 +17,12 @@ fn style() -> String {
     style
 }
 
+fn assert_eq_lines<S1: AsRef<str>, S2: AsRef<str>>(actual: S1, expected: S2) {
+    for (la, lb) in actual.as_ref().lines().zip(expected.as_ref().lines()) {
+        assert_eq!(la, lb, "Expected {la} to be {lb}.")
+    }
+}
+
 pub fn concat(strings: &[&str]) -> String {
     let mut string = String::new();
     for s in strings {
@@ -47,25 +53,31 @@ This is a test markdown file. It should
 ## Handle Subheadings
 "#;
 
-fn make_doc(document: Vec<Node>) -> Document {
-    Document {
-        fsnode: 0,
-        output: std::path::PathBuf::new(),
-        document,
-    }
+fn make_doc(document: Vec<Node>, title: &str) -> (FsTree, Document) {
+    let mut tree = FsTree::new();
+    let fsnode = tree.add("file.html", FsTree::ROOT, Some(title.to_string()));
+    (
+        tree,
+        Document {
+            fsnode,
+            output: std::path::PathBuf::new(),
+            document,
+        },
+    )
 }
 
 #[test]
 fn test_render_heading() {
-    assert_eq!(
-        super::render_document(
-            &Config::none(),
-            &FsTree::new(),
-            &make_doc(vec![Node::heading(1, vec![Node::text("Hello World")])])
-        ),
+    let (tree, doc) = make_doc(
+        vec![Node::heading(1, vec![Node::text("Hello World")])],
+        "Hello World",
+    );
+    assert_eq_lines(
+        super::render_document(&Config::none(), &tree, &doc),
         concat(&[
             "<html>",
             "  <head>",
+            "    <title>Hello World</title>",
             &style(),
             "  </head>",
             "  <body>",
@@ -73,8 +85,8 @@ fn test_render_heading() {
             "      <h1>Hello World</h1>",
             "    </main>",
             "  </body>",
-            "</html>"
-        ])
+            "</html>",
+        ]),
     )
 }
 
@@ -118,15 +130,16 @@ fn test_escaping() {
 
 #[test]
 fn test_integration() {
+    let (tree, doc) = make_doc(
+        crate::parse::parse_document(MD.trim()),
+        "Test Markdown File",
+    );
     assert_eq!(
-        super::render_document(
-            &Config::none(),
-            &FsTree::new(),
-            &make_doc(crate::parse::parse_document(MD.trim()))
-        ),
+        super::render_document(&Config::none(), &tree, &doc),
         concat(&[
             "<html>",
             "  <head>",
+            "    <title>Test Markdown File</title>",
             &style(),
             "  </head>",
             "  <body>",
