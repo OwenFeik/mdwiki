@@ -75,32 +75,31 @@ pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
     Node::list(items).with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
 }
 
+fn next_breadcrumb<'a>(tree: &'a FsTree, fsnode: &'a FsNode) -> Option<&'a FsNode> {
+    if fsnode.is_index_file() {
+        tree.get_parent(fsnode)
+            .and_then(|parent| tree.get_parent(parent))
+    } else {
+        tree.get_parent(fsnode)
+    }
+}
+
 pub fn make_nav_breadcrumb(tree: &FsTree, fsnode: &FsNode) -> Node {
     let mut nodes = Vec::new();
-    let mut fsnode = fsnode.parent.and_then(|id| tree.get(id));
+    let mut fsnode = next_breadcrumb(tree, fsnode);
     while let Some(entry) = fsnode
         && !entry.is_root()
     {
         nodes.push(Node::text("/"));
         nodes.push(make_node_link(entry));
-
-        if entry.is_index_file() {
-            // Skip indexed directory.
-            fsnode = entry
-                .parent
-                .and_then(|id| tree.get(id))
-                .and_then(|parent| parent.parent)
-                .and_then(|id| tree.get(id));
-        } else {
-            fsnode = entry.parent.and_then(|id| tree.get(id));
-        }
+        fsnode = next_breadcrumb(tree, entry);
     }
     nodes.reverse();
 
-    if nodes.len() > 2 {
-        Node::heading(3, nodes).with_attr("id", CSS_ID_NAV_BREADCRUMB)
-    } else {
+    if nodes.is_empty() {
         Node::empty()
+    } else {
+        Node::heading(3, nodes).with_attr("id", CSS_ID_NAV_BREADCRUMB)
     }
 }
 

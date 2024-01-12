@@ -293,7 +293,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     html.push_str(&indent(include_str!("res/style.css"), html.stack.len()));
     html.lclose();
     html.lclose();
-    html.lopen("body", empty);
+    html.lopenl("body", empty);
 
     if config.nav_tree {
         render(&nav::make_nav_tree(tree, doc), &mut html);

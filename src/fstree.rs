@@ -106,6 +106,10 @@ impl FsTree {
         self.nodes.get(id)
     }
 
+    pub fn get_parent(&self, node: &FsNode) -> Option<&FsNode> {
+        node.parent.and_then(|id| self.get(id))
+    }
+
     pub fn children(&self, id: usize) -> Vec<&FsNode> {
         self.nodes.iter().filter(|n| n.parent == Some(id)).collect()
     }
