@@ -1,31 +1,34 @@
-use crate::INDEX_FILE;
-
 #[derive(Debug)]
 pub enum NodeType {
     File,
     Directory,
+    Index,
 }
 
 #[derive(Debug)]
 pub struct FsNode {
     ty: NodeType,
-    pub id: usize,
-    path: Vec<String>,
-    pub parent: Option<usize>,
+    path: Vec<usize>,
     title: String,
+    url: String,
 }
 
 impl FsNode {
-    pub fn path(&self) -> &[String] {
-        &self.path
+    pub fn id(&self) -> usize {
+        *self.path.last().unwrap() // Path must never be non-empty.
     }
 
-    pub fn name(&self) -> Option<&String> {
-        self.path().last()
+    pub fn parent(&self) -> Option<usize> {
+        let n = self.path.len();
+        if n >= 2 {
+            self.path.get(n - 2).copied()
+        } else {
+            None
+        }
     }
 
-    pub fn url(&self) -> String {
-        format!("/{}", self.path.join("/"))
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     pub fn title(&self) -> &str {
@@ -37,11 +40,11 @@ impl FsNode {
     }
 
     pub fn is_root(&self) -> bool {
-        self.id == FsTree::ROOT
+        self.id() == FsTree::ROOT
     }
 
-    pub fn is_index_file(&self) -> bool {
-        !self.is_dir() && self.name().map(String::as_str) == Some(INDEX_FILE)
+    pub fn is_index(&self) -> bool {
+        matches!(self.ty, NodeType::Index)
     }
 }
 
@@ -56,50 +59,60 @@ impl FsTree {
         Self {
             nodes: vec![FsNode {
                 ty: NodeType::Directory,
-                id: Self::ROOT,
-                path: Vec::new(),
-                parent: None,
-                title: "Index".to_string(),
+                path: vec![Self::ROOT],
+                title: "ROOT".to_string(),
+                url: "".to_string(),
             }],
         }
     }
 
-    fn path<S: ToString>(&self, name: S, parent: usize) -> (Vec<String>, Option<usize>) {
-        if let Some(node) = self.nodes.get(parent) {
-            let mut path: Vec<String> = node.path().into();
-            path.push(name.to_string());
-            (path, Some(parent))
+    fn add<D: std::fmt::Display, S: ToString>(
+        &mut self,
+        ty: NodeType,
+        parent: usize,
+        filename: D,
+        title: S,
+    ) -> usize {
+        let id = self.nodes.len();
+        let parent = if let Some(parent) = self.get(parent) {
+            parent
         } else {
-            (vec![name.to_string()], None)
-        }
-    }
+            self.get(Self::ROOT).unwrap()
+        };
+        let mut path = parent.path.clone();
+        path.push(id);
 
-    pub fn add<S: ToString>(&mut self, name: S, parent: usize, title: Option<String>) -> usize {
-        let id = self.nodes.len();
-        let name = name.to_string();
-        let (path, parent) = self.path(name.clone(), parent);
         self.nodes.push(FsNode {
-            ty: NodeType::File,
-            id,
+            ty,
             path,
-            parent,
-            title: title.map(|s| s.to_string()).unwrap_or(name),
+            title: title.to_string(),
+            url: format!("{}/{}", parent.url(), filename),
         });
+
         id
     }
 
-    pub fn add_dir<S: ToString>(&mut self, name: S, parent: usize) -> usize {
-        let id = self.nodes.len();
-        let title = name.to_string();
-        let (path, parent) = self.path(name, parent);
-        self.nodes.push(FsNode {
-            ty: NodeType::Directory,
-            id,
-            path,
-            parent,
-            title,
-        });
-        id
+    pub fn add_doc<D: std::fmt::Display, S: ToString>(
+        &mut self,
+        parent: usize,
+        filename: D,
+        title: S,
+    ) -> usize {
+        self.add(NodeType::File, parent, filename, title)
+    }
+
+    pub fn add_dir<D: std::fmt::Display>(&mut self, parent: usize, filename: D) -> usize {
+        let title = filename.to_string();
+        self.add(NodeType::Directory, parent, filename, title)
+    }
+
+    pub fn add_index<D: std::fmt::Display, S: ToString>(
+        &mut self,
+        parent: usize,
+        filename: D,
+        title: S,
+    ) -> usize {
+        self.add(NodeType::Index, parent, filename, title)
     }
 
     pub fn get(&self, id: usize) -> Option<&FsNode> {
@@ -107,11 +120,14 @@ impl FsTree {
     }
 
     pub fn get_parent(&self, node: &FsNode) -> Option<&FsNode> {
-        node.parent.and_then(|id| self.get(id))
+        node.parent().and_then(|id| self.get(id))
     }
 
     pub fn children(&self, id: usize) -> Vec<&FsNode> {
-        self.nodes.iter().filter(|n| n.parent == Some(id)).collect()
+        self.nodes
+            .iter()
+            .filter(|n| n.parent() == Some(id))
+            .collect()
     }
 
     pub fn nodes(&self) -> &[FsNode] {

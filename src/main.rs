@@ -71,13 +71,13 @@ fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) ->
         return None;
     };
 
-    let out_name = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
+    let filename = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
     let document = parse::parse_document(&markdown);
-
-    let page = tree.add(&out_name, parent, document_title(&document, &out_name));
+    let title = document_title(&document, &filename).unwrap_or_else(|| filename.clone());
+    let page = tree.add_doc(parent, &filename, title);
 
     create_outdir(outdir);
-    let output = outdir.join(out_name);
+    let output = outdir.join(filename);
 
     Some(Document {
         fsnode: page,
@@ -129,7 +129,7 @@ fn process_directory(
     let node = if tree_exclude {
         FsTree::ROOT
     } else {
-        tree.add_dir(name.to_string_lossy(), parent)
+        tree.add_dir(parent, name.to_string_lossy())
     };
 
     let mut documents = Vec::new();
@@ -164,7 +164,7 @@ fn render_document(config: &Config, tree: &FsTree, doc: &Document) {
         if let Some(fsnode) = tree.get(doc.fsnode) {
             log::info(format!(
                 "Rendered {} to {}",
-                fsnode.path().join("/"),
+                fsnode.url(),
                 doc.output.display()
             ));
         }
@@ -178,17 +178,17 @@ fn create_directory_index(
     fsnode: &FsNode,
     outdir: &Path,
 ) -> Option<(usize, PathBuf, Vec<model::Node>)> {
-    let children = tree.children(fsnode.id);
-    if !children.is_empty() && !children.iter().any(|child| child.is_index_file()) {
+    let children = tree.children(fsnode.id());
+    if !children.is_empty() && !children.iter().any(|child| child.is_index()) {
         let document = render::create_index(fsnode, &children);
 
         let mut output = outdir.to_path_buf();
-        for segment in fsnode.path() {
+        for segment in fsnode.url().split('/').filter(|s| !s.is_empty()) {
             output.push(segment);
         }
         output.push(INDEX_FILE);
 
-        Some((fsnode.id, output, document))
+        Some((fsnode.id(), output, document))
     } else {
         None
     }
@@ -206,7 +206,7 @@ fn add_indexes(tree: &mut FsTree, outdir: &Path) -> Vec<Document> {
         .into_iter()
         .map(|(parent, output, document)| {
             let title = tree.get(parent).map(|n| n.title()).unwrap();
-            let fsnode = tree.add(INDEX_FILE, parent, Some(title.to_string()));
+            let fsnode = tree.add_index(parent, INDEX_FILE, title.to_string());
             Document {
                 fsnode,
                 output,

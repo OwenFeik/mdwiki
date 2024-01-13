@@ -31,15 +31,15 @@ fn capitalise(title: &str) -> String {
 }
 
 fn make_node_link(fsnode: &FsNode) -> Node {
-    Node::link(&capitalise(fsnode.title()), &fsnode.url())
+    Node::link(&capitalise(fsnode.title()), fsnode.url())
 }
 
 fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
     let mut entries = Vec::new();
 
     let mut children = Vec::new();
-    for child in tree.children(fsnode.id) {
-        if child.is_index_file() {
+    for child in tree.children(fsnode.id()) {
+        if child.is_index() {
             fsnode = child;
         } else {
             let subtree = make_nav_subtree(tree, child, doc);
@@ -50,7 +50,7 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
     }
 
     let mut node = make_node_link(fsnode);
-    if fsnode.id == doc.fsnode {
+    if fsnode.id() == doc.fsnode {
         node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
     }
     entries.push(node);
@@ -76,7 +76,7 @@ pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
 }
 
 fn next_breadcrumb<'a>(tree: &'a FsTree, fsnode: &'a FsNode) -> Option<&'a FsNode> {
-    if fsnode.is_index_file() {
+    if fsnode.is_index() {
         tree.get_parent(fsnode)
             .and_then(|parent| tree.get_parent(parent))
     } else {
@@ -112,6 +112,8 @@ pub fn create_index(fsnode: &FsNode, children: &[&FsNode]) -> Vec<Node> {
 
 #[cfg(test)]
 mod test {
+    use crate::render::test::assert_eq_lines;
+
     use super::*;
     use render::test::{concat, test_render};
 
@@ -126,10 +128,10 @@ mod test {
     #[test]
     fn test_nav_tree() {
         let mut tree = FsTree::new();
-        let root = tree.add("index", FsTree::ROOT, None);
-        let country = tree.add("country", root, Some("Country!".into()));
-        tree.add("citya", country, None);
-        tree.add("cityb", country, None);
+        let root = tree.add_index(FsTree::ROOT, "index", "index");
+        let country = tree.add_doc(root, "country", "Country!");
+        tree.add_doc(country, "citya", "citya");
+        tree.add_doc(country, "cityb", "cityb");
         let node = super::make_nav_tree(&tree, &make_doc(country, "Country!"));
 
         assert_eq!(
@@ -152,11 +154,11 @@ mod test {
     #[test]
     fn test_nav_tree_render() {
         let mut tree = FsTree::new();
-        let idx = tree.add("index", FsTree::ROOT, None);
-        let page = tree.add("page", idx, Some("Page Title".into()));
-        tree.add("child", page, None);
+        let idx = tree.add_index(FsTree::ROOT, "index", "index");
+        let page = tree.add_doc(idx, "page", "Page Title");
+        tree.add_doc(page, "child", "child");
 
-        assert_eq!(
+        assert_eq_lines(
             test_render(super::make_nav_tree(&tree, &make_doc(page, "Page Title"))),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
@@ -177,7 +179,7 @@ mod test {
     #[test]
     fn test_empty_dir_excluded() {
         let mut tree = FsTree::new();
-        let node = tree.add_dir("dir", FsTree::ROOT);
+        let node = tree.add_dir(FsTree::ROOT, "dir");
         assert_eq!(
             test_render(super::make_nav_tree(&tree, &make_doc(node, "dir"))),
             "<ul id=\"nav-tree\">\n</ul>"
@@ -187,8 +189,8 @@ mod test {
     #[test]
     fn test_index_replaces_dir() {
         let mut tree = FsTree::new();
-        let dir = tree.add_dir("dir", FsTree::ROOT);
-        let idx = tree.add("index.html", dir, Some("Index".to_string()));
+        let dir = tree.add_dir(FsTree::ROOT, "dir");
+        let idx = tree.add_index(dir, "index.html", "Index");
         assert_eq!(
             test_render(super::make_nav_tree(&tree, &make_doc(idx, "Index"))),
             concat(&[

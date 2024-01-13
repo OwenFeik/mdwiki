@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::Config,
-    fstree::FsTree,
+    fstree::{FsNode, FsTree},
     log::warning,
     model::{Attrs, El, Node, Style},
     Document,
@@ -248,12 +248,8 @@ fn render_nodes(nodes: &[Node], html: &mut Html) {
     }
 }
 
-fn add_page_heading(path: &[String], html: &mut Html) {
-    if let Some(title) = path.last() {
-        render(&Node::heading(1, vec![Node::text(title)]), html);
-    } else {
-        warning("add_page_heading=true but no path present.");
-    }
+fn add_page_heading(fsnode: &FsNode, html: &mut Html) {
+    render(&Node::heading(1, vec![Node::text(fsnode.title())]), html);
 }
 
 fn add_page_path(tree: &FsTree, doc: &Document, html: &mut Html) {
@@ -310,7 +306,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
         }
 
         if config.page_heading {
-            add_page_heading(node.path(), &mut html);
+            add_page_heading(node, &mut html);
         }
     }
 
