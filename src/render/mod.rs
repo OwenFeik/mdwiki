@@ -4,8 +4,7 @@ use crate::{
     config::Config,
     fstree::{FsNode, FsTree},
     log::warning,
-    model::{Attrs, El, Node, Style},
-    Document,
+    model::{Attrs, El, File, Node, Style},
 };
 
 mod nav;
@@ -252,20 +251,20 @@ fn add_page_heading(fsnode: &FsNode, html: &mut Html) {
     render(&Node::heading(1, vec![Node::text(fsnode.title())]), html);
 }
 
-fn add_page_path(tree: &FsTree, doc: &Document, html: &mut Html) {
-    if let Some(fsnode) = tree.get(doc.fsnode) {
+fn add_page_path(tree: &FsTree, file: &File, html: &mut Html) {
+    if let Some(fsnode) = tree.get(file.fsnode()) {
         render(&nav::make_nav_breadcrumb(tree, fsnode), html);
     } else {
         warning(format!(
             "Failed to add page path for {}, FsNode not found.",
-            doc.output.display()
+            file.fsnode()
         ))
     }
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
-pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String {
+pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
     let mut html = Html::new();
     let mut paragraph_open = false;
 
@@ -274,7 +273,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     html.open("html", empty);
     html.lopenl("head", empty);
 
-    if let Some(text) = tree.get(doc.fsnode).map(|n| n.title()) {
+    if let Some(text) = tree.get(file.fsnode()).map(|n| n.title()) {
         html.open("title", empty);
         render(&Node::text(text), &mut html);
         html.close();
@@ -292,7 +291,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     html.lopenl("body", empty);
 
     if config.nav_tree {
-        render(&nav::make_nav_tree(tree, doc), &mut html);
+        render(&nav::make_nav_tree(tree, file.fsnode()), &mut html);
     }
 
     html.start("div");
@@ -300,9 +299,9 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     html.finish(empty);
     html.lopen("main", empty);
 
-    if let Some(node) = tree.get(doc.fsnode) {
+    if let Some(node) = tree.get(file.fsnode()) {
         if config.path {
-            add_page_path(tree, doc, &mut html);
+            add_page_path(tree, file, &mut html);
         }
 
         if config.page_heading {
@@ -311,7 +310,7 @@ pub fn render_document(config: &Config, tree: &FsTree, doc: &Document) -> String
     }
 
     let mut prev: Option<&Node> = None;
-    for node in &doc.document {
+    for node in file.document() {
         match node.el() {
             El::Code(..) | El::Link(..) | El::Style(..) | El::Text(..) => {
                 if paragraph_open {

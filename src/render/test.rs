@@ -53,22 +53,15 @@ This is a test markdown file. It should
 ## Handle Subheadings
 "#;
 
-fn make_doc(document: Vec<Node>, title: &str) -> (FsTree, Document) {
+fn make_file(document: Vec<Node>, title: &str) -> (FsTree, File) {
     let mut tree = FsTree::new();
-    let fsnode = tree.add_doc(FsTree::ROOT, "file.html", title.to_string());
-    (
-        tree,
-        Document {
-            fsnode,
-            output: std::path::PathBuf::new(),
-            document,
-        },
-    )
+    let file = File::new(&mut tree, FsTree::ROOT, "file.html", title, document);
+    (tree, file)
 }
 
 #[test]
 fn test_render_heading() {
-    let (tree, doc) = make_doc(
+    let (tree, doc) = make_file(
         vec![Node::heading(1, vec![Node::text("Hello World")])],
         "Hello World",
     );
@@ -132,7 +125,7 @@ fn test_escaping() {
 
 #[test]
 fn test_integration() {
-    let (tree, doc) = make_doc(
+    let (tree, doc) = make_file(
         crate::parse::parse_document(MD.trim()),
         "Test Markdown File",
     );

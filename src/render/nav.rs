@@ -1,7 +1,6 @@
 use crate::{
     fstree::{FsNode, FsTree},
     model::Node,
-    Document,
 };
 
 const CSS_CLASS_ATTR: &str = "class";
@@ -34,7 +33,7 @@ fn make_node_link(fsnode: &FsNode) -> Node {
     Node::link(&capitalise(fsnode.title()), fsnode.url())
 }
 
-fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document) -> Node {
+fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: usize) -> Node {
     let mut entries = Vec::new();
 
     let mut children = Vec::new();
@@ -42,7 +41,7 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
         if child.is_index() {
             fsnode = child;
         } else {
-            let subtree = make_nav_subtree(tree, child, doc);
+            let subtree = make_nav_subtree(tree, child, page);
             if !subtree.is_empty() {
                 children.push(subtree);
             }
@@ -50,7 +49,7 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
     }
 
     let mut node = make_node_link(fsnode);
-    if fsnode.id() == doc.fsnode {
+    if fsnode.id() == page {
         node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
     }
     entries.push(node);
@@ -64,10 +63,10 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, doc: &Document
     Node::item(entries)
 }
 
-pub fn make_nav_tree(tree: &FsTree, doc: &Document) -> Node {
+pub fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
     let mut items = Vec::new();
     for child in tree.children(FsTree::ROOT) {
-        let subtree = make_nav_subtree(tree, child, doc);
+        let subtree = make_nav_subtree(tree, child, page);
         if !subtree.is_empty() {
             items.push(subtree);
         }
@@ -112,27 +111,19 @@ pub fn create_index(fsnode: &FsNode, children: &[&FsNode]) -> Vec<Node> {
 
 #[cfg(test)]
 mod test {
-    use crate::render::test::assert_eq_lines;
+    use crate::{model::File, render::test::assert_eq_lines};
 
     use super::*;
     use render::test::{concat, test_render};
 
-    fn make_doc(node: usize, title: &str) -> Document {
-        Document {
-            fsnode: node,
-            document: vec![Node::heading(1, vec![Node::text(title)])],
-            output: std::path::PathBuf::new(),
-        }
-    }
-
     #[test]
     fn test_nav_tree() {
         let mut tree = FsTree::new();
-        let root = tree.add_index(FsTree::ROOT, "index", "index");
-        let country = tree.add_doc(root, "country", "Country!");
-        tree.add_doc(country, "citya", "citya");
-        tree.add_doc(country, "cityb", "cityb");
-        let node = super::make_nav_tree(&tree, &make_doc(country, "Country!"));
+        let dir = tree.add_dir(FsTree::ROOT, "index");
+        let country = File::new(&mut tree, dir, "country", "Country!", Vec::new());
+        File::new(&mut tree, country.fsnode(), "citya", "citya", Vec::new());
+        File::new(&mut tree, country.fsnode(), "cityb", "cityb", Vec::new());
+        let node = super::make_nav_tree(&tree, country.fsnode());
 
         assert_eq!(
             node,
@@ -154,12 +145,12 @@ mod test {
     #[test]
     fn test_nav_tree_render() {
         let mut tree = FsTree::new();
-        let idx = tree.add_index(FsTree::ROOT, "index", "index");
-        let page = tree.add_doc(idx, "page", "Page Title");
-        tree.add_doc(page, "child", "child");
+        let dir = tree.add_dir(FsTree::ROOT, "index");
+        let page = File::new(&mut tree, dir, "page", "Page Title", Vec::new());
+        File::new(&mut tree, page.fsnode(), "child", "child", Vec::new());
 
         assert_eq_lines(
-            test_render(super::make_nav_tree(&tree, &make_doc(page, "Page Title"))),
+            test_render(super::make_nav_tree(&tree, page.fsnode())),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
                 "  <li><a href=\"/index\">Index</a>",
@@ -179,9 +170,9 @@ mod test {
     #[test]
     fn test_empty_dir_excluded() {
         let mut tree = FsTree::new();
-        let node = tree.add_dir(FsTree::ROOT, "dir");
+        tree.add_dir(FsTree::ROOT, "dir");
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, &make_doc(node, "dir"))),
+            test_render(super::make_nav_tree(&tree, 2)),
             "<ul id=\"nav-tree\">\n</ul>"
         );
     }
@@ -192,7 +183,7 @@ mod test {
         let dir = tree.add_dir(FsTree::ROOT, "dir");
         let idx = tree.add_index(dir, "index.html", "Index");
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, &make_doc(idx, "Index"))),
+            test_render(super::make_nav_tree(&tree, idx)),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 "  <li><a href=\"/dir/index.html\" class=\"this-page\">Index</a></li>",

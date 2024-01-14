@@ -60,7 +60,7 @@ impl FsTree {
             nodes: vec![FsNode {
                 ty: NodeType::Directory,
                 path: vec![Self::ROOT],
-                title: "ROOT".to_string(),
+                title: "Index".to_string(),
                 url: "".to_string(),
             }],
         }
@@ -92,7 +92,7 @@ impl FsTree {
         id
     }
 
-    pub fn add_doc<D: std::fmt::Display, S: ToString>(
+    pub fn add_file<D: std::fmt::Display, S: ToString>(
         &mut self,
         parent: usize,
         filename: D,

@@ -8,6 +8,7 @@ use std::{
 
 use config::Config;
 use fstree::{FsNode, FsTree};
+use model::File;
 
 mod config;
 mod fstree;
@@ -20,12 +21,6 @@ const INPUT_EXT: &str = "md";
 const RESOURCE_EXTS: &[&str] = &["jpg", "jpeg", "png"];
 const OUTPUT_EXT: &str = "html";
 const INDEX_FILE: &str = "index.html";
-
-struct Document {
-    fsnode: usize,
-    output: PathBuf,
-    document: Vec<model::Node>,
-}
 
 fn is_hidden(path: &Path) -> bool {
     path.file_name()
@@ -57,7 +52,12 @@ fn document_title(nodes: &[model::Node], filename: &str) -> Option<String> {
     filename.split('.').next().map(|s| s.to_string())
 }
 
-fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) -> Option<Document> {
+fn process_file(
+    tree: &mut FsTree,
+    parent: usize,
+    file: &Path,
+    outdir: &Path,
+) -> Option<(File, PathBuf)> {
     let Some(Some(name)) = file.file_name().map(std::ffi::OsStr::to_str) else {
         log::error(format!(
             "Couldn't find file name for file: {}",
@@ -74,16 +74,13 @@ fn process_file(tree: &mut FsTree, parent: usize, file: &Path, outdir: &Path) ->
     let filename = name.replace(&format!(".{INPUT_EXT}"), &format!(".{OUTPUT_EXT}"));
     let document = parse::parse_document(&markdown);
     let title = document_title(&document, &filename).unwrap_or_else(|| filename.clone());
-    let page = tree.add_doc(parent, &filename, title);
+
+    let file = File::new(tree, parent, &filename, title, document);
 
     create_outdir(outdir);
-    let output = outdir.join(filename);
+    let destination = outdir.join(filename);
 
-    Some(Document {
-        fsnode: page,
-        document,
-        output,
-    })
+    Some((file, destination))
 }
 
 fn copy_file(file: &Path, outdir: &Path) {
@@ -110,7 +107,7 @@ fn process_directory(
     parent: usize,
     indir: &Path,
     outdir: &Path,
-) -> Vec<Document> {
+) -> Vec<(File, PathBuf)> {
     let Ok(dir) = std::fs::read_dir(indir) else {
         log::error(format!("Couldn't read directory: {}", indir.display()));
         return Vec::new();
@@ -158,18 +155,18 @@ fn process_directory(
     documents
 }
 
-fn render_document(config: &Config, tree: &FsTree, doc: &Document) {
-    let html = render::render_document(config, tree, doc);
-    if std::fs::write(&doc.output, html).is_ok() {
-        if let Some(fsnode) = tree.get(doc.fsnode) {
+fn render_document(config: &Config, tree: &FsTree, file: &File, destination: &Path) {
+    let html = render::render_document(config, tree, file);
+    if std::fs::write(destination, html).is_ok() {
+        if let Some(fsnode) = tree.get(file.fsnode()) {
             log::info(format!(
                 "Rendered {} to {}",
                 fsnode.url(),
-                doc.output.display()
+                destination.display()
             ));
         }
     } else {
-        log::error(format!("Failed to write file: {}", doc.output.display()));
+        log::error(format!("Failed to write file: {}", destination.display()));
     }
 }
 
@@ -194,7 +191,7 @@ fn create_directory_index(
     }
 }
 
-fn add_indexes(tree: &mut FsTree, outdir: &Path) -> Vec<Document> {
+fn add_indexes(tree: &mut FsTree, outdir: &Path) -> Vec<(File, PathBuf)> {
     let indexes_to_add: Vec<(usize, PathBuf, Vec<model::Node>)> = tree
         .nodes()
         .iter()
@@ -205,13 +202,11 @@ fn add_indexes(tree: &mut FsTree, outdir: &Path) -> Vec<Document> {
     indexes_to_add
         .into_iter()
         .map(|(parent, output, document)| {
-            let title = tree.get(parent).map(|n| n.title()).unwrap();
-            let fsnode = tree.add_index(parent, INDEX_FILE, title.to_string());
-            Document {
-                fsnode,
+            let title = tree.get(parent).map(|n| n.title()).unwrap().to_string();
+            (
+                File::new_index(tree, parent, INDEX_FILE, title, document),
                 output,
-                document,
-            }
+            )
         })
         .collect()
 }
@@ -239,8 +234,8 @@ fn main() {
             fail("Couldn't find parent directory of input file.");
         };
 
-        if let Some(doc) = process_file(&mut tree, 0, &path, parent) {
-            render_document(&config, &tree, &doc)
+        if let Some((file, destination)) = process_file(&mut tree, 0, &path, parent) {
+            render_document(&config, &tree, &file, &destination)
         } else {
             fail("Unable to process file for rendering.");
         }
@@ -252,15 +247,15 @@ fn main() {
 
         if let Some(parent) = indir.parent() {
             let outdir = parent.join(format!("{dirname}-{OUTPUT_EXT}"));
-            let mut docs = process_directory(&mut tree, true, 0, &indir, &outdir);
+            let mut files = process_directory(&mut tree, true, 0, &indir, &outdir);
 
             if config.generate_indexes {
                 log::info("Generating indexes for directories which don't have them.");
-                docs.extend(add_indexes(&mut tree, &outdir));
+                files.extend(add_indexes(&mut tree, &outdir));
             }
 
-            for doc in docs {
-                render_document(&config, &tree, &doc);
+            for (file, destination) in files {
+                render_document(&config, &tree, &file, &destination);
             }
         } else {
             fail("Couldn't choose an output directory for files.");
