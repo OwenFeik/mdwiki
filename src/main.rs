@@ -75,7 +75,11 @@ fn process_file(
     let document = parse::parse_document(&markdown);
     let title = document_title(&document, &filename).unwrap_or_else(|| filename.clone());
 
-    let file = File::new(tree, parent, &filename, title, document);
+    let file = if filename == INDEX_FILE {
+        File::new_index(tree, parent, &filename, title, document)
+    } else {
+        File::new(tree, parent, &filename, title, document)
+    };
 
     create_outdir(outdir);
     let destination = outdir.join(filename);

@@ -129,8 +129,16 @@ impl Node {
         Self::new(El::Div(children))
     }
 
+    pub fn span(children: Vec<Node>) -> Self {
+        Self::new(El::Span(children))
+    }
+
     pub fn empty() -> Self {
         Self::new(El::Empty)
+    }
+
+    pub fn details(summary: Vec<Node>, details: Vec<Node>) -> Self {
+        Self::new(El::Details(summary, details))
     }
 
     pub fn attr(&mut self, key: &str, value: &str) {
@@ -167,6 +175,8 @@ impl Node {
         match &self.element {
             El::Empty
             | El::Div(_)
+            | El::Span(_)
+            | El::Details(_, _)
             | El::Item(_)
             | El::List(_)
             | El::Style(_, _)
@@ -182,17 +192,8 @@ impl Node {
 
     pub fn el_url(&self) -> Option<&str> {
         match &self.element {
-            El::Empty
-            | El::Div(_)
-            | El::Item(_)
-            | El::List(_)
-            | El::Style(_, _)
-            | El::Table(_)
-            | El::Heading(_, _)
-            | El::Code(_)
-            | El::Codeblock(_, _)
-            | El::Text(_) => None,
             El::Image(_, url) | El::Link(_, url) => Some(url),
+            _ => None,
         }
     }
 }
@@ -201,8 +202,10 @@ impl Node {
 pub enum El {
     Empty,
     Div(Vec<Node>),                    // (children)
+    Span(Vec<Node>),                   // (children)
     Code(String),                      // (code)
     Codeblock(Option<String>, String), // (lang, code)
+    Details(Vec<Node>, Vec<Node>),     // (summary, details)
     Heading(u8, Vec<Node>),            // (type, children)
     Image(String, String),             // (text, url)
     Item(Vec<Node>),                   // (children)
@@ -218,6 +221,8 @@ impl El {
         match self {
             El::Empty | El::Image(..) | El::Link(..) | El::Table(..) => (),
             El::Div(children)
+            | El::Span(children)
+            | El::Details(_, children)
             | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)
@@ -237,10 +242,12 @@ impl El {
             El::Image(_, url) => url.is_empty(),
             El::Link(text, _) => text.is_empty(),
             El::Div(children)
+            | El::Span(children)
             | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)
-            | El::List(children) => !children.iter().any(|n| !n.is_empty()),
+            | El::List(children) => all_empty(children),
+            El::Details(summary, details) => all_empty(summary) && all_empty(details),
             El::Code(string) | El::Codeblock(_, string) | El::Text(string) => {
                 string.trim().is_empty()
             }
@@ -255,6 +262,10 @@ impl El {
             }
         }
     }
+}
+
+fn all_empty(nodes: &[Node]) -> bool {
+    nodes.iter().all(Node::is_empty)
 }
 
 #[cfg(test)]

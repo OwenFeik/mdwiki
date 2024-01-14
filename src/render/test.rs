@@ -171,13 +171,31 @@ fn test_code() {
 
 #[test]
 fn test_code_block() {
-    let mut html = super::Html::new();
-    super::render(
+    let mut html = Html::new();
+    render(
         &Node::codeblock(Some("py"), "print(\"Hello World\")"),
         &mut html,
     );
     assert_eq!(
         html.content.trim(),
         "<pre>\n  print(&quot;Hello World&quot;)\n</pre>"
+    );
+}
+
+#[test]
+fn test_details() {
+    assert_eq_lines(
+        test_render(Node::details(
+            vec![Node::link("index.html", "/")],
+            vec![Node::list(vec![Node::link("child.html", "/child.html")])],
+        )),
+        concat(&[
+            "<details>",
+            "  <summary><a href=\"/\">index.html</a></summary>",
+            "  <ul>",
+            "    <li><a href=\"/child.html\">child.html</a></li>",
+            "  </ul>",
+            "</details>",
+        ]),
     );
 }

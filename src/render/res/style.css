@@ -62,10 +62,28 @@ a:visited {
 }
 
 #nav-tree {
+    list-style: none;
     position: absolute;
     padding-top: 6rem;
-    padding-left: 0.5rem;
+    padding-left: 2rem;
     width: var(--nav-tree-width);
+}
+
+#nav-tree ul {
+    list-style: none;
+}
+
+.nav-tree-bullet {
+    --d: 0.5em;
+    display: inline-block;
+    height: var(--d);
+    width: var(--d);
+
+    background: var(--fg1);
+    border-radius: 0.5em;
+
+    transform: translateY(-0.15em);
+    margin-right: 0.1em;
 }
 
 #nav-breadcrumb {

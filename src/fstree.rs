@@ -27,8 +27,16 @@ impl FsNode {
         }
     }
 
+    pub fn is_descendent_of(&self, ancestor: usize) -> bool {
+        self.path.contains(&ancestor)
+    }
+
     pub fn url(&self) -> &str {
         &self.url
+    }
+
+    pub fn path(&self) -> &[usize] {
+        &self.path
     }
 
     pub fn title(&self) -> &str {

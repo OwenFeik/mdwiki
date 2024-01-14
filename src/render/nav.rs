@@ -5,7 +5,8 @@ use crate::{
 
 const CSS_CLASS_ATTR: &str = "class";
 const CSS_ID_ATTR: &str = "id";
-const THIS_PAGE_CSS_CLASS: &str = "this-page";
+const CSS_CLASS_THIS_PAGE: &str = "nav-tree-selected";
+const CSS_CLASS_BULLET: &str = "nav-tree-bullet";
 const CSS_ID_NAV_TREE: &str = "nav-tree";
 const CSS_ID_NAV_BREADCRUMB: &str = "nav-breadcrumb";
 
@@ -33,9 +34,7 @@ fn make_node_link(fsnode: &FsNode) -> Node {
     Node::link(&capitalise(fsnode.title()), fsnode.url())
 }
 
-fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: usize) -> Node {
-    let mut entries = Vec::new();
-
+fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: &'a FsNode) -> Node {
     let mut children = Vec::new();
     for child in tree.children(fsnode.id()) {
         if child.is_index() {
@@ -48,27 +47,42 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: usize) -
         }
     }
 
-    let mut node = make_node_link(fsnode);
-    if fsnode.id() == page {
-        node.attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS);
+    let mut link = make_node_link(fsnode);
+    if fsnode.id() == page.id() {
+        link.attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE);
     }
-    entries.push(node);
 
     if !children.is_empty() {
-        entries.push(Node::list(children));
-    } else if fsnode.is_dir() {
-        return Node::empty();
-    }
+        let mut node = Node::details(vec![link], vec![Node::list(children)]);
 
-    Node::item(entries)
+        if page.is_descendent_of(fsnode.id())
+            || (fsnode.is_index()
+                && fsnode
+                    .parent()
+                    .map(|p| page.is_descendent_of(p))
+                    .unwrap_or(false))
+        {
+            node.attr("open", "");
+        }
+        node
+    } else if !fsnode.is_dir() {
+        Node::item(vec![
+            Node::span(vec![Node::text("")]).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+            link,
+        ])
+    } else {
+        Node::empty()
+    }
 }
 
 pub fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
     let mut items = Vec::new();
-    for child in tree.children(FsTree::ROOT) {
-        let subtree = make_nav_subtree(tree, child, page);
-        if !subtree.is_empty() {
-            items.push(subtree);
+    if let Some(fsnode) = tree.get(page) {
+        for child in tree.children(FsTree::ROOT) {
+            let subtree = make_nav_subtree(tree, child, fsnode);
+            if !subtree.is_empty() {
+                items.push(subtree);
+            }
         }
     }
     Node::list(items).with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
@@ -127,17 +141,27 @@ mod test {
 
         assert_eq!(
             node,
-            Node::list(vec![Node::item(vec![
-                Node::link("Index", "/index"),
-                Node::list(vec![Node::item(vec![
-                    Node::link("Country!", "/index/country")
-                        .with_attr(CSS_CLASS_ATTR, THIS_PAGE_CSS_CLASS),
-                    Node::list(vec![
-                        Node::link("Citya", "/index/country/citya"),
-                        Node::link("Cityb", "/index/country/cityb")
-                    ])
-                ])])
-            ])])
+            Node::list(vec![Node::item(vec![Node::details(
+                vec![Node::link("Index", "/index")],
+                vec![Node::list(vec![Node::item(vec![Node::details(
+                    vec![Node::link("Country!", "/index/country")
+                        .with_attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE)],
+                    vec![Node::list(vec![
+                        Node::item(vec![
+                            Node::span(vec![Node::text("")])
+                                .with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::link("Citya", "/index/country/citya")
+                        ]),
+                        Node::item(vec![
+                            Node::span(vec![Node::text("")])
+                                .with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::link("Cityb", "/index/country/cityb")
+                        ]),
+                    ])]
+                )
+                .with_attr("open", "")])])]
+            )
+            .with_attr("open", "")])])
             .with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
         );
     }
@@ -153,14 +177,20 @@ mod test {
             test_render(super::make_nav_tree(&tree, page.fsnode())),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
-                "  <li><a href=\"/index\">Index</a>",
-                "    <ul>",
-                &format!("      <li><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{THIS_PAGE_CSS_CLASS}\">Page Title</a>"),
-                "        <ul>",
-                "          <li><a href=\"/index/page/child\">Child</a></li>",
-                "        </ul>",
-                "      </li>",
-                "    </ul>",
+                "  <li>",
+                "    <details open=\"\">",
+                "      <summary><a href=\"/index\">Index</a></summary>",
+                "      <ul>",
+                "        <li>",
+                "          <details open=\"\">",
+                &format!("            <summary><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{CSS_CLASS_THIS_PAGE}\">Page Title</a></summary>"),
+                "            <ul>",
+                "              <li><span class=\"nav-tree-bullet\"></span> <a href=\"/index/page/child\">Child</a></li>",
+                "            </ul>",
+                "          </details>",
+                "        </li>",
+                "      </ul>",
+                "    </details>",
                 "  </li>",
                 "</ul>"
             ])
@@ -186,7 +216,13 @@ mod test {
             test_render(super::make_nav_tree(&tree, idx)),
             concat(&[
                 "<ul id=\"nav-tree\">",
-                "  <li><a href=\"/dir/index.html\" class=\"this-page\">Index</a></li>",
+                &format!(
+                    "  <li><span {}=\"{}\"></span> <a href=\"/dir/index.html\" {}=\"{}\">Index</a></li>",
+                    CSS_CLASS_ATTR,
+                    CSS_CLASS_BULLET,
+                    CSS_CLASS_ATTR,
+                    CSS_CLASS_THIS_PAGE
+                ),
                 "</ul>"
             ])
         );

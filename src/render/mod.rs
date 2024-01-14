@@ -151,7 +151,7 @@ impl Html {
         if self.content.ends_with('>') {
             if matches!(
                 self.just_closed.as_deref(),
-                Some("a" | "b" | "i" | "s" | "code")
+                Some("a" | "b" | "i" | "s" | "code" | "span")
             ) {
                 self.space();
             }
@@ -179,6 +179,12 @@ fn render(node: &Node, html: &mut Html) {
             render_nodes(children, html);
             html.lclosel();
         }
+        El::Span(children) => {
+            html.space_if_needed();
+            html.open("span", node.attrs());
+            render_nodes(children, html);
+            html.close();
+        }
         El::Code(code) => {
             html.open("code", node.attrs());
             html.push_str(&escape(code));
@@ -187,6 +193,14 @@ fn render(node: &Node, html: &mut Html) {
         El::Codeblock(_lang, code) => {
             html.lopenl("pre", node.attrs());
             html.push_str(&indent(&escape(code), html.stack.len()));
+            html.lclosel();
+        }
+        El::Details(summary, details) => {
+            html.lopenl("details", node.attrs());
+            html.lopen("summary", &HashMap::new());
+            render_nodes(summary, html);
+            html.close();
+            render_nodes(details, html);
             html.lclosel();
         }
         El::Heading(level, children) => {
@@ -329,7 +343,9 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
                 }
             }
             El::Div(..)
+            | El::Span(..)
             | El::Codeblock(..)
+            | El::Details(..)
             | El::Heading(..)
             | El::Image(..)
             | El::List(..)
