@@ -1,47 +1,5 @@
 use std::collections::HashMap;
 
-use crate::fstree::FsTree;
-
-#[derive(Debug)]
-pub struct File {
-    fsnode: usize,
-    document: Document,
-}
-
-impl File {
-    pub fn new<D: std::fmt::Display, S: ToString>(
-        tree: &mut FsTree,
-        parent: usize,
-        filename: D,
-        title: S,
-        document: Document,
-    ) -> Self {
-        let fsnode = tree.add_file(parent, filename, title);
-        Self { fsnode, document }
-    }
-
-    pub fn new_index<D: std::fmt::Display, S: ToString>(
-        tree: &mut FsTree,
-        parent: usize,
-        filename: D,
-        title: S,
-        document: Document,
-    ) -> Self {
-        let fsnode = tree.add_index(parent, filename, title);
-        Self { fsnode, document }
-    }
-
-    pub fn fsnode(&self) -> usize {
-        self.fsnode
-    }
-
-    pub fn document(&self) -> &[Node] {
-        &self.document
-    }
-}
-
-pub type Document = Vec<Node>;
-
 #[derive(Debug, Eq, PartialEq)]
 pub enum Style {
     Bold,

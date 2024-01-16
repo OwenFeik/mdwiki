@@ -1,8 +1,4 @@
-use crate::{
-    config::Config,
-    fstree::FsTree,
-    model::{Node, Style},
-};
+use crate::model::{Doc, Id, Node};
 
 use super::*;
 
@@ -18,6 +14,9 @@ fn style() -> String {
 }
 
 pub fn assert_eq_lines<S1: AsRef<str>, S2: AsRef<str>>(actual: S1, expected: S2) {
+    let (real, goal) = (actual.as_ref(), expected.as_ref());
+    dbg!(real);
+    dbg!(goal);
     for (la, lb) in actual.as_ref().lines().zip(expected.as_ref().lines()) {
         assert_eq!(la, lb, "Expected {la} to be {lb}.")
     }
@@ -53,20 +52,20 @@ This is a test markdown file. It should
 ## Handle Subheadings
 "#;
 
-fn make_file(document: Vec<Node>, title: &str) -> (FsTree, File) {
-    let mut tree = FsTree::new();
-    let file = File::new(&mut tree, FsTree::ROOT, "file.html", title, document);
+fn make_file(document: Doc, title: &str) -> (WikiTree, Id) {
+    let mut tree = WikiTree::new();
+    let file = tree.add_doc(WikiTree::ROOT, "file.html", title, Doc::from(document));
     (tree, file)
 }
 
 #[test]
 fn test_render_heading() {
-    let (tree, doc) = make_file(
-        vec![Node::heading(1, vec![Node::text("Hello World")])],
+    let (tree, page) = make_file(
+        Doc::from(vec![Node::heading(1, vec![Node::text("Hello World")])]),
         "Hello World",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), &tree, &doc),
+        super::render_document(&Config::none(), Some(&tree), tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",
@@ -125,12 +124,12 @@ fn test_escaping() {
 
 #[test]
 fn test_integration() {
-    let (tree, doc) = make_file(
+    let (tree, page) = make_file(
         crate::parse::parse_document(MD.trim()),
         "Test Markdown File",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), &tree, &doc),
+        super::render_document(&Config::none(), Some(&tree), tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",

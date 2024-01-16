@@ -2,17 +2,18 @@ use std::collections::HashMap;
 
 use crate::{
     config::Config,
-    fstree::{FsNode, FsTree},
-    log::warning,
-    model::{Attrs, El, File, Node, Style},
+    log,
+    model::{Attrs, El, Node, Style, WikiPage, WikiTree},
 };
 
 mod nav;
 
-#[cfg(test)]
 mod test;
 
 pub use self::nav::create_index;
+
+pub const INDEX_FILE: &str = "index.html";
+pub const OUTPUT_EXT: &str = "html";
 
 const TABSIZE: usize = 2;
 
@@ -261,24 +262,29 @@ fn render_nodes(nodes: &[Node], html: &mut Html) {
     }
 }
 
-fn add_page_heading(fsnode: &FsNode, html: &mut Html) {
-    render(&Node::heading(1, vec![Node::text(fsnode.title())]), html);
+fn add_page_heading(page: &WikiPage, html: &mut Html) {
+    render(&Node::heading(1, vec![Node::text(page.title())]), html);
 }
 
-fn add_page_path(tree: &FsTree, file: &File, html: &mut Html) {
-    if let Some(fsnode) = tree.get(file.fsnode()) {
-        render(&nav::make_nav_breadcrumb(tree, fsnode), html);
-    } else {
-        warning(format!(
-            "Failed to add page path for {}, FsNode not found.",
-            file.fsnode()
-        ))
-    }
+fn add_page_path(tree: &WikiTree, page: &WikiPage, html: &mut Html) {
+    render(&nav::make_nav_breadcrumb(tree, page), html);
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
-pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
+pub fn render_document(
+    config: &Config,
+    tree: Option<&WikiTree>,
+    page: &WikiPage,
+) -> Result<String, ()> {
+    let Some(doc) = page.document() else {
+        log::error(format!(
+            "Can't render page with no document: {}",
+            page.url()
+        ));
+        return Err(());
+    };
+
     let mut html = Html::new();
     let mut paragraph_open = false;
 
@@ -287,11 +293,9 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
     html.open("html", empty);
     html.lopenl("head", empty);
 
-    if let Some(text) = tree.get(file.fsnode()).map(|n| n.title()) {
-        html.open("title", empty);
-        render(&Node::text(text), &mut html);
-        html.close();
-    }
+    html.open("title", empty);
+    render(&Node::text(page.title()), &mut html);
+    html.close();
 
     html.lstart("style");
     html.attr("href", FONT);
@@ -304,8 +308,10 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
     html.lclose();
     html.lopenl("body", empty);
 
-    if config.nav_tree {
-        render(&nav::make_nav_tree(tree, file.fsnode()), &mut html);
+    if config.nav_tree
+        && let Some(tree) = tree
+    {
+        render(&nav::make_nav_tree(tree, page), &mut html);
     }
 
     html.start("div");
@@ -313,18 +319,18 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
     html.finish(empty);
     html.lopen("main", empty);
 
-    if let Some(node) = tree.get(file.fsnode()) {
-        if config.path {
-            add_page_path(tree, file, &mut html);
+    if let Some(tree) = tree {
+        if config.page_heading {
+            add_page_heading(page, &mut html);
         }
 
-        if config.page_heading {
-            add_page_heading(node, &mut html);
+        if config.add_breadcrumbs {
+            add_page_path(tree, page, &mut html);
         }
     }
 
     let mut prev: Option<&Node> = None;
-    for node in file.document() {
+    for node in doc.nodes() {
         match node.el() {
             El::Code(..) | El::Link(..) | El::Style(..) | El::Text(..) => {
                 if paragraph_open {
@@ -355,7 +361,7 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
                 }
                 paragraph_open = false;
             }
-            El::Item(..) => warning("List item at root level."),
+            El::Item(..) => log::warning("List item at root level."),
             El::Empty => {}
         }
 
@@ -368,5 +374,5 @@ pub fn render_document(config: &Config, tree: &FsTree, file: &File) -> String {
     html.lclose();
     html.lclose();
 
-    String::from(html.content.trim())
+    Ok(String::from(html.content.trim()))
 }

@@ -1,7 +1,4 @@
-use crate::{
-    fstree::{FsNode, FsTree},
-    model::Node,
-};
+use crate::model::{Doc, Node, WikiPage, WikiTree};
 
 const CSS_CLASS_ATTR: &str = "class";
 const CSS_ID_ATTR: &str = "id";
@@ -30,15 +27,19 @@ fn capitalise(title: &str) -> String {
         .join(" ")
 }
 
-fn make_node_link(fsnode: &FsNode) -> Node {
-    Node::link(&capitalise(fsnode.title()), fsnode.url())
+fn make_page_link(page: &WikiPage) -> Node {
+    Node::link(&capitalise(page.title()), page.url())
 }
 
-fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: &'a FsNode) -> Node {
+fn make_nav_subtree<'a>(tree: &'a WikiTree, mut current: &'a WikiPage, page: &'a WikiPage) -> Node {
+    if current.is_media() {
+        return Node::empty();
+    }
+
     let mut children = Vec::new();
-    for child in tree.children(fsnode.id()) {
+    for child in tree.children(current.id()) {
         if child.is_index() {
-            fsnode = child;
+            current = child;
         } else {
             let subtree = make_nav_subtree(tree, child, page);
             if !subtree.is_empty() {
@@ -47,17 +48,17 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: &'a FsNo
         }
     }
 
-    let mut link = make_node_link(fsnode);
-    if fsnode.id() == page.id() {
+    let mut link = make_page_link(current);
+    if current.id() == page.id() {
         link.attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE);
     }
 
     if !children.is_empty() {
         let mut node = Node::details(vec![link], vec![Node::list(children)]);
 
-        if page.is_descendent_of(fsnode.id())
-            || (fsnode.is_index()
-                && fsnode
+        if page.is_descendent_of(current.id())
+            || (current.is_index()
+                && current
                     .parent()
                     .map(|p| page.is_descendent_of(p))
                     .unwrap_or(false))
@@ -65,9 +66,9 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: &'a FsNo
             node.attr("open", "");
         }
         node
-    } else if !fsnode.is_dir() {
+    } else if !current.is_dir() {
         Node::item(vec![
-            Node::span(vec![Node::text("")]).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
             link,
         ])
     } else {
@@ -75,37 +76,35 @@ fn make_nav_subtree<'a>(tree: &'a FsTree, mut fsnode: &'a FsNode, page: &'a FsNo
     }
 }
 
-pub fn make_nav_tree(tree: &FsTree, page: usize) -> Node {
+pub fn make_nav_tree(tree: &WikiTree, page: &WikiPage) -> Node {
     let mut items = Vec::new();
-    if let Some(fsnode) = tree.get(page) {
-        for child in tree.children(FsTree::ROOT) {
-            let subtree = make_nav_subtree(tree, child, fsnode);
-            if !subtree.is_empty() {
-                items.push(subtree);
-            }
+    for child in tree.children(WikiTree::ROOT) {
+        let subtree = make_nav_subtree(tree, child, page);
+        if !subtree.is_empty() {
+            items.push(subtree);
         }
     }
     Node::list(items).with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
 }
 
-fn next_breadcrumb<'a>(tree: &'a FsTree, fsnode: &'a FsNode) -> Option<&'a FsNode> {
-    if fsnode.is_index() {
-        tree.get_parent(fsnode)
+fn next_breadcrumb<'a>(tree: &'a WikiTree, current: &'a WikiPage) -> Option<&'a WikiPage> {
+    if current.is_index() {
+        tree.get_parent(current)
             .and_then(|parent| tree.get_parent(parent))
     } else {
-        tree.get_parent(fsnode)
+        tree.get_parent(current)
     }
 }
 
-pub fn make_nav_breadcrumb(tree: &FsTree, fsnode: &FsNode) -> Node {
+pub fn make_nav_breadcrumb(tree: &WikiTree, page: &WikiPage) -> Node {
     let mut nodes = Vec::new();
-    let mut fsnode = next_breadcrumb(tree, fsnode);
-    while let Some(entry) = fsnode
+    let mut current = next_breadcrumb(tree, page);
+    while let Some(entry) = current
         && !entry.is_root()
     {
         nodes.push(Node::text("/"));
-        nodes.push(make_node_link(entry));
-        fsnode = next_breadcrumb(tree, entry);
+        nodes.push(make_page_link(entry));
+        current = next_breadcrumb(tree, entry);
     }
     nodes.reverse();
 
@@ -116,28 +115,27 @@ pub fn make_nav_breadcrumb(tree: &FsTree, fsnode: &FsNode) -> Node {
     }
 }
 
-pub fn create_index(fsnode: &FsNode, children: &[&FsNode]) -> Vec<Node> {
-    vec![
+pub fn create_index(fsnode: &WikiPage, children: &[&WikiPage]) -> Doc {
+    Doc::from(vec![
         Node::heading(1, vec![Node::text(&capitalise(fsnode.title()))]),
-        Node::list(children.iter().map(|n| make_node_link(n)).collect()),
-    ]
+        Node::list(children.iter().map(|n| make_page_link(n)).collect()),
+    ])
 }
 
-#[cfg(test)]
 mod test {
-    use crate::{model::File, render::test::assert_eq_lines};
+    use crate::render::test::assert_eq_lines;
 
     use super::*;
     use render::test::{concat, test_render};
 
     #[test]
     fn test_nav_tree() {
-        let mut tree = FsTree::new();
-        let dir = tree.add_dir(FsTree::ROOT, "index");
-        let country = File::new(&mut tree, dir, "country", "Country!", Vec::new());
-        File::new(&mut tree, country.fsnode(), "citya", "citya", Vec::new());
-        File::new(&mut tree, country.fsnode(), "cityb", "cityb", Vec::new());
-        let node = super::make_nav_tree(&tree, country.fsnode());
+        let mut tree = WikiTree::new();
+        let dir = tree.add_dir(WikiTree::ROOT, "index");
+        let country = tree.add_doc(dir, "country", "Country!", Doc::empty());
+        tree.add_doc(country, "citya", "citya", Doc::empty());
+        tree.add_doc(country, "cityb", "cityb", Doc::empty());
+        let node = super::make_nav_tree(&tree, tree.get(country).unwrap());
 
         assert_eq!(
             node,
@@ -148,13 +146,11 @@ mod test {
                         .with_attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE)],
                     vec![Node::list(vec![
                         Node::item(vec![
-                            Node::span(vec![Node::text("")])
-                                .with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
                             Node::link("Citya", "/index/country/citya")
                         ]),
                         Node::item(vec![
-                            Node::span(vec![Node::text("")])
-                                .with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
                             Node::link("Cityb", "/index/country/cityb")
                         ]),
                     ])]
@@ -168,13 +164,13 @@ mod test {
 
     #[test]
     fn test_nav_tree_render() {
-        let mut tree = FsTree::new();
-        let dir = tree.add_dir(FsTree::ROOT, "index");
-        let page = File::new(&mut tree, dir, "page", "Page Title", Vec::new());
-        File::new(&mut tree, page.fsnode(), "child", "child", Vec::new());
+        let mut tree = WikiTree::new();
+        let dir = tree.add_dir(WikiTree::ROOT, "index");
+        let page = tree.add_doc(dir, "page", "Page Title", Doc::empty());
+        tree.add_doc(page, "child", "child", Doc::empty());
 
         assert_eq_lines(
-            test_render(super::make_nav_tree(&tree, page.fsnode())),
+            test_render(super::make_nav_tree(&tree, tree.get(page).unwrap())),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
                 "  <li>",
@@ -199,21 +195,21 @@ mod test {
 
     #[test]
     fn test_empty_dir_excluded() {
-        let mut tree = FsTree::new();
-        tree.add_dir(FsTree::ROOT, "dir");
+        let mut tree = WikiTree::new();
+        let dir = tree.add_dir(WikiTree::ROOT, "dir");
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, 2)),
+            test_render(super::make_nav_tree(&tree, tree.get(dir).unwrap())),
             "<ul id=\"nav-tree\">\n</ul>"
         );
     }
 
     #[test]
     fn test_index_replaces_dir() {
-        let mut tree = FsTree::new();
-        let dir = tree.add_dir(FsTree::ROOT, "dir");
-        let idx = tree.add_index(dir, "index.html", "Index");
+        let mut tree = WikiTree::new();
+        let dir = tree.add_dir(WikiTree::ROOT, "dir");
+        let idx = tree.add_index(dir, "index.html", "Index", Doc::empty());
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, idx)),
+            test_render(super::make_nav_tree(&tree, tree.get(idx).unwrap())),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 &format!(
@@ -234,5 +230,35 @@ mod test {
         assert_eq!(capitalise("sword of killing"), "Sword of Killing");
         assert_eq!(capitalise("the big town"), "The Big Town");
         assert_eq!(capitalise("magic is a resource"), "Magic is a Resource");
+    }
+
+    #[test]
+    fn test_media_excluded_from_nav_tree() {
+        let mut tree = WikiTree::new();
+        let dir = tree.add_dir(WikiTree::ROOT, "dir");
+        let page = tree.add_doc(dir, "doc.html", "Doc", Doc::empty());
+        let images = tree.add_dir(dir, "images");
+        tree.add_media(
+            images,
+            "image.png",
+            "Image",
+            std::path::PathBuf::from("./image.png"),
+        );
+
+        assert_eq_lines(
+            test_render(super::make_nav_tree(&tree, tree.get(page).unwrap())),
+            concat(&[
+                "<ul id=\"nav-tree\">",
+                "  <li>",
+                "    <details open=\"\">",
+                "      <summary><a href=\"/dir\">Dir</a></summary>",
+                "      <ul>",
+                "        <li><span class=\"nav-tree-bullet\"></span> <a href=\"/dir/doc.html\" class=\"nav-tree-selected\">Doc</a></li>",
+                "      </ul>",
+                "    </details>",
+                "  </li>",
+                "</ul>",
+            ]),
+        );
     }
 }
