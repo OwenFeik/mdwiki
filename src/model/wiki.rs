@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::render::capitalise;
+
 use super::Doc;
 
 pub type Id = usize;
@@ -146,7 +148,7 @@ impl WikiTree {
     }
 
     pub fn add_dir<D: std::fmt::Display>(&mut self, parent: Id, filename: D) -> Id {
-        let title = filename.to_string();
+        let title = capitalise(&filename.to_string().replace('-', " "));
         self.add(WikiPageInner::Directory, parent, filename, title)
     }
 

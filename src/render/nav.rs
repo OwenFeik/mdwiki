@@ -7,28 +7,8 @@ const CSS_CLASS_BULLET: &str = "nav-tree-bullet";
 const CSS_ID_NAV_TREE: &str = "nav-tree";
 const CSS_ID_NAV_BREADCRUMB: &str = "nav-breadcrumb";
 
-fn capitalise_word(word: &str) -> String {
-    match word {
-        "a" | "and" | "at" | "is" | "of" | "to" => word.to_string(),
-        _ if !word.is_empty() => format!(
-            "{}{}",
-            word.chars().next().unwrap().to_uppercase(),
-            &word[1..]
-        ),
-        _ => word.to_string(),
-    }
-}
-
-fn capitalise(title: &str) -> String {
-    title
-        .split(|c| c == ' ' || c == '-' || c == '_')
-        .map(capitalise_word)
-        .collect::<Vec<String>>()
-        .join(" ")
-}
-
 fn make_page_link(page: &WikiPage) -> Node {
-    Node::link(&capitalise(page.title()), page.url())
+    Node::link(page.title(), page.url())
 }
 
 fn make_nav_subtree<'a>(tree: &'a WikiTree, mut current: &'a WikiPage, page: &'a WikiPage) -> Node {
@@ -115,26 +95,29 @@ pub fn make_nav_breadcrumb(tree: &WikiTree, page: &WikiPage) -> Node {
     }
 }
 
-pub fn create_index(fsnode: &WikiPage, children: &[&WikiPage]) -> Doc {
+pub fn create_index(page: &WikiPage, children: &[&WikiPage]) -> Doc {
     Doc::from(vec![
-        Node::heading(1, vec![Node::text(&capitalise(fsnode.title()))]),
+        Node::heading(1, vec![Node::text(page.title())]),
         Node::list(children.iter().map(|n| make_page_link(n)).collect()),
     ])
 }
 
+#[cfg(test)]
 mod test {
-    use crate::render::test::assert_eq_lines;
+    use crate::render::{
+        html::render_node,
+        test::{assert_eq_lines, concat},
+    };
 
     use super::*;
-    use render::test::{concat, test_render};
 
     #[test]
     fn test_nav_tree() {
         let mut tree = WikiTree::new();
         let dir = tree.add_dir(WikiTree::ROOT, "index");
         let country = tree.add_doc(dir, "country", "Country!", Doc::empty());
-        tree.add_doc(country, "citya", "citya", Doc::empty());
-        tree.add_doc(country, "cityb", "cityb", Doc::empty());
+        tree.add_doc(country, "citya", "Citya", Doc::empty());
+        tree.add_doc(country, "cityb", "Cityb", Doc::empty());
         let node = super::make_nav_tree(&tree, tree.get(country).unwrap());
 
         assert_eq!(
@@ -167,10 +150,10 @@ mod test {
         let mut tree = WikiTree::new();
         let dir = tree.add_dir(WikiTree::ROOT, "index");
         let page = tree.add_doc(dir, "page", "Page Title", Doc::empty());
-        tree.add_doc(page, "child", "child", Doc::empty());
+        tree.add_doc(page, "child", "Child", Doc::empty());
 
         assert_eq_lines(
-            test_render(super::make_nav_tree(&tree, tree.get(page).unwrap())),
+            render_node(&super::make_nav_tree(&tree, tree.get(page).unwrap())),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
                 "  <li>",
@@ -198,7 +181,7 @@ mod test {
         let mut tree = WikiTree::new();
         let dir = tree.add_dir(WikiTree::ROOT, "dir");
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, tree.get(dir).unwrap())),
+            render_node(&super::make_nav_tree(&tree, tree.get(dir).unwrap())),
             "<ul id=\"nav-tree\">\n</ul>"
         );
     }
@@ -209,7 +192,7 @@ mod test {
         let dir = tree.add_dir(WikiTree::ROOT, "dir");
         let idx = tree.add_index(dir, "index.html", "Index", Doc::empty());
         assert_eq!(
-            test_render(super::make_nav_tree(&tree, tree.get(idx).unwrap())),
+            render_node(&super::make_nav_tree(&tree, tree.get(idx).unwrap())),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 &format!(
@@ -222,14 +205,6 @@ mod test {
                 "</ul>"
             ])
         );
-    }
-
-    #[test]
-    fn test_capitalise() {
-        assert_eq!(capitalise("tree at hill"), "Tree at Hill");
-        assert_eq!(capitalise("sword of killing"), "Sword of Killing");
-        assert_eq!(capitalise("the big town"), "The Big Town");
-        assert_eq!(capitalise("magic is a resource"), "Magic is a Resource");
     }
 
     #[test]
@@ -246,7 +221,7 @@ mod test {
         );
 
         assert_eq_lines(
-            test_render(super::make_nav_tree(&tree, tree.get(page).unwrap())),
+            render_node(&super::make_nav_tree(&tree, tree.get(page).unwrap())),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 "  <li>",

@@ -3,7 +3,7 @@ use std::{ffi::OsStr, path::Path};
 use crate::{
     log,
     model::WikiTree,
-    render::{INDEX_FILE, OUTPUT_EXT},
+    render::{capitalise, INDEX_FILE, OUTPUT_EXT},
 };
 
 const INPUT_EXT: &str = "md";
@@ -20,8 +20,8 @@ fn title_from_filename(filename: &str) -> String {
     filename
         .split('.')
         .next()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| filename.to_string())
+        .map(capitalise)
+        .unwrap_or_else(|| capitalise(filename))
 }
 
 pub fn process_document(tree: &mut WikiTree, parent: usize, file: &Path) {
