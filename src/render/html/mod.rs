@@ -407,7 +407,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
     let mut prev: Option<&Node> = None;
     for node in doc.nodes() {
         match node.el() {
-            El::Code(..) | El::Link(..) | El::Style(..) | El::Text(..) => {
+            El::Code(..) | El::Text(..) => {
                 if paragraph_open {
                     match prev {
                         Some(n) if matches!(n.el(), El::Text(..)) => {
@@ -437,7 +437,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
                 paragraph_open = false;
             }
             El::Item(..) => log::warning("List item at root level."),
-            El::Empty => {}
+            El::Empty | El::Link(..) | El::Style(..) => {}
         }
 
         render(&mut state, node);

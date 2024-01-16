@@ -32,29 +32,44 @@ fn make_file(document: Doc, title: &str) -> (WikiTree, Id) {
     (tree, file)
 }
 
+fn wrap_main(title: &str, main: &[&str]) -> String {
+    let title = format!("    <title>{title}</title>");
+    let css = style();
+    let mut lines: Vec<String> = [
+        "<html>",
+        "  <head>",
+        &title,
+        &css,
+        "  </head>",
+        "  <body>",
+        "    <div id=\"content\">",
+        "      <main>",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+
+    for line in main {
+        lines.push(format!("{}{}", " ".repeat(4 * TABSIZE), line));
+    }
+
+    for line in &["      </main>", "    </div>", "  </body>", "</html>"] {
+        lines.push(line.to_string());
+    }
+
+    concat(&lines.iter().map(|s| s.as_str()).collect::<Vec<&str>>())
+}
+
 #[test]
 fn test_render_heading() {
+    let title = "Hello World";
     let (tree, page) = make_file(
         vec![Node::heading(1, vec![Node::text("Hello World")])].into(),
-        "Hello World",
+        title,
     );
     assert_eq_lines(
         render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
-        concat(&[
-            "<html>",
-            "  <head>",
-            "    <title>Hello World</title>",
-            &style(),
-            "  </head>",
-            "  <body>",
-            "    <div id=\"content\">",
-            "      <main>",
-            "        <h1>Hello World</h1>",
-            "      </main>",
-            "    </div>",
-            "  </body>",
-            "</html>",
-        ]),
+        wrap_main(title, &["<h1>Hello World</h1>"]),
     )
 }
 
@@ -97,41 +112,30 @@ fn test_escaping() {
 }
 
 #[test]
-fn test_integration() {
-    let (tree, page) = make_file(
-        crate::parse::parse_document(MD.trim()),
-        "Test Markdown File",
-    );
+fn test_full_document() {
+    let title = "Test Markdown File";
+    let (tree, page) = make_file(crate::parse::parse_document(MD.trim()), title);
     assert_eq_lines(
         render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
-        concat(&[
-            "<html>",
-            "  <head>",
-            "    <title>Test Markdown File</title>",
-            &style(),
-            "  </head>",
-            "  <body>",
-            "    <div id=\"content\">",
-            "      <main>",
-            "        <h1>Test Markdown File</h1>",
-            "        <p>",
-            "          This is a test markdown file. It should",
-            "        </p>",
-            "        <ul>",
-            "          <li>Parse lists",
-            "            <ul>",
-            "              <li>Including sub lists</li>",
-            "              <li>And <b>bold</b> and <i>italics</i></li>",
-            r#"              <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
-            "            </ul>",
-            "          </li>",
-            "        </ul>",
-            "        <h2>Handle Subheadings</h2>",
-            "      </main>",
-            "    </div>",
-            "  </body>",
-            "</html>",
-        ]),
+        wrap_main(
+            title,
+            &[
+                "<h1>Test Markdown File</h1>",
+                "<p>",
+                "  This is a test markdown file. It should",
+                "</p>",
+                "<ul>",
+                "  <li>Parse lists",
+                "    <ul>",
+                "      <li>Including sub lists</li>",
+                "      <li>And <b>bold</b> and <i>italics</i></li>",
+                r#"      <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
+                "    </ul>",
+                "  </li>",
+                "</ul>",
+                "<h2>Handle Subheadings</h2>",
+            ],
+        ),
     )
 }
 
@@ -166,5 +170,30 @@ fn test_details() {
             "  </ul>",
             "</details>",
         ]),
+    );
+}
+
+#[test]
+fn test_inline_link() {
+    let title = "Page Title";
+    let (tree, page) = make_file(
+        vec![
+            Node::text("Some text"),
+            Node::link("Link text", "http://url"),
+        ]
+        .into(),
+        title,
+    );
+
+    assert_eq_lines(
+        render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
+        wrap_main(
+            title,
+            &[
+                "<p>",
+                "  Some text <a href=\"http://url\">Link text</a>",
+                "</p>",
+            ],
+        ),
     );
 }

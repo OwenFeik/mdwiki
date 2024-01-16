@@ -15,7 +15,7 @@ pub fn concat(strings: &[&str]) -> String {
         if !string.is_empty() {
             string.push('\n');
         }
-        string.push_str(s);
+        string.push_str(s.as_ref());
     }
     string
 }
