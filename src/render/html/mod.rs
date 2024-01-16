@@ -310,7 +310,9 @@ fn render(state: &mut RenderState, node: &Node) {
         }
         El::Table(rows) => {}
         El::Text(text) => {
-            state.space_if_needed();
+            if text.starts_with(char::is_alphanumeric) {
+                state.space_if_needed();
+            }
             state.push_str(text);
         }
     }
@@ -329,8 +331,6 @@ fn add_page_heading(state: &mut RenderState, page: &WikiPage) {
 fn add_page_path(state: &mut RenderState, page: &WikiPage) {
     render(state, &super::nav::make_nav_breadcrumb(state.tree, page));
 }
-
-const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
 #[cfg(test)]
 pub fn render_node(node: &Node) -> String {
@@ -377,11 +377,6 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
     render(&mut state, &Node::text(page.title()));
     state.html.close();
 
-    state.html.lstart("style");
-    state.html.attr("href", FONT);
-    state.html.attr("rel", "stylesheet");
-    state.html.finish(empty);
-    state.html.close();
     state.html.lopenl("style", empty);
     state.html.push_str(&indent(
         include_str!("res/style.css"),

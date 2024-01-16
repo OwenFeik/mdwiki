@@ -7,11 +7,8 @@ use super::*;
 
 fn style() -> String {
     let mut style = String::new();
-    style.push_str("    <style href=\"");
-    style.push_str(FONT);
-    style.push_str("\" rel=\"stylesheet\"></style>\n");
     style.push_str("    <style>\n      ");
-    style.push_str(&super::indent(include_str!("res/style.css"), 3));
+    style.push_str(&indent(include_str!("res/style.css"), 3));
     style.push_str("\n    </style>");
     style
 }
@@ -42,7 +39,7 @@ fn test_render_heading() {
         "Hello World",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
+        render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",
@@ -106,7 +103,7 @@ fn test_integration() {
         "Test Markdown File",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
+        render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",

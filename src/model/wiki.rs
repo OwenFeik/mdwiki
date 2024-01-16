@@ -248,12 +248,14 @@ mod test {
         let rootdoc = tree.add_doc(rootdir, "file.html", "File", Doc::empty());
         let childdir = tree.add_dir(rootdir, "childdir");
 
+        let name = "file.html";
+
         {
             let root = tree.get(rootdir).unwrap();
             let child = tree.get(childdir).unwrap();
 
-            assert_eq!(tree.find_link_target("file", root).unwrap().id(), rootdoc);
-            assert_eq!(tree.find_link_target("file", child).unwrap().id(), rootdoc);
+            assert_eq!(tree.find_link_target(name, root).unwrap().id(), rootdoc);
+            assert_eq!(tree.find_link_target(name, child).unwrap().id(), rootdoc);
         }
 
         let childdoc = tree.add_doc(childdir, "file.html", "File", Doc::empty());
@@ -262,8 +264,8 @@ mod test {
             let root = tree.get(rootdir).unwrap();
             let child = tree.get(childdir).unwrap();
 
-            assert_eq!(tree.find_link_target("file", root).unwrap().id(), rootdoc);
-            assert_eq!(tree.find_link_target("file", child).unwrap().id(), childdoc);
+            assert_eq!(tree.find_link_target(name, root).unwrap().id(), rootdoc);
+            assert_eq!(tree.find_link_target(name, child).unwrap().id(), childdoc);
         }
     }
 }
