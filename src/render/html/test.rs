@@ -42,7 +42,7 @@ fn test_render_heading() {
         "Hello World",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), Some(&tree), tree.get(page).unwrap()).unwrap(),
+        super::render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",
@@ -106,7 +106,7 @@ fn test_integration() {
         "Test Markdown File",
     );
     assert_eq_lines(
-        super::render_document(&Config::none(), Some(&tree), tree.get(page).unwrap()).unwrap(),
+        super::render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
         concat(&[
             "<html>",
             "  <head>",
@@ -140,20 +140,16 @@ fn test_integration() {
 
 #[test]
 fn test_code() {
-    let mut html = super::Html::new();
-    super::render(&Node::code("print(\"Hello World\")"), &mut html);
-    assert_eq!(&html.content, "<code>print(&quot;Hello World&quot;)</code>");
+    assert_eq!(
+        render_node(&Node::code("print(\"Hello World\")")),
+        "<code>print(&quot;Hello World&quot;)</code>"
+    );
 }
 
 #[test]
 fn test_code_block() {
-    let mut html = Html::new();
-    render(
-        &Node::codeblock(Some("py"), "print(\"Hello World\")"),
-        &mut html,
-    );
     assert_eq!(
-        html.content.trim(),
+        render_node(&Node::codeblock(Some("py"), "print(\"Hello World\")")),
         "<pre>\n  print(&quot;Hello World&quot;)\n</pre>"
     );
 }

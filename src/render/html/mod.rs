@@ -156,77 +156,106 @@ impl Html {
     }
 }
 
+struct RenderState<'a> {
+    tree: &'a WikiTree,
+    page: &'a WikiPage,
+    config: &'a Config,
+    html: &'a mut Html,
+}
+
+impl<'a> std::ops::Deref for RenderState<'a> {
+    type Target = Html;
+
+    fn deref(&self) -> &Self::Target {
+        self.html
+    }
+}
+
+impl<'a> std::ops::DerefMut for RenderState<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.html
+    }
+}
+
 fn escape(string: &str) -> String {
     string.replace('"', "&quot;")
 }
 
-pub fn indent(string: &str, by: usize) -> String {
+fn indent(string: &str, by: usize) -> String {
     let mut repl = String::from("\n");
     repl.push_str(&" ".repeat(by * TABSIZE));
     String::from(string.replace('\n', &repl).trim())
 }
 
-fn render(node: &Node, html: &mut Html) {
+fn render(state: &mut RenderState, node: &Node) {
     match node.el() {
         El::Empty => (),
         El::Div(children) => {
-            html.lopenl("div", node.attrs());
-            render_nodes(children, html);
-            html.lclosel();
+            state.html.lopenl("div", node.attrs());
+            render_nodes(state, children);
+            state.lclosel();
         }
         El::Span(children) => {
-            html.space_if_needed();
-            html.open("span", node.attrs());
-            render_nodes(children, html);
-            html.close();
+            state.space_if_needed();
+            state.open("span", node.attrs());
+            render_nodes(state, children);
+            state.close();
         }
         El::Code(code) => {
-            html.open("code", node.attrs());
-            html.push_str(&escape(code));
-            html.close();
+            state.open("code", node.attrs());
+            state.push_str(&escape(code));
+            state.close();
         }
         El::Codeblock(_lang, code) => {
-            html.lopenl("pre", node.attrs());
-            html.push_str(&indent(&escape(code), html.stack.len()));
-            html.lclosel();
+            state.lopenl("pre", node.attrs());
+            let indent_size = state.stack.len();
+            state.push_str(&indent(&escape(code), indent_size));
+            state.lclosel();
         }
         El::Details(summary, details) => {
-            html.lopenl("details", node.attrs());
-            html.lopen("summary", &HashMap::new());
-            render_nodes(summary, html);
-            html.close();
-            render_nodes(details, html);
-            html.lclosel();
+            state.lopenl("details", node.attrs());
+            state.lopen("summary", &HashMap::new());
+            render_nodes(state, summary);
+            state.close();
+            render_nodes(state, details);
+            state.lclosel();
         }
         El::Heading(level, children) => {
-            html.lopen(&format!("h{level}"), node.attrs());
-            render_nodes(children, html);
-            html.closel();
+            state.lopen(&format!("h{level}"), node.attrs());
+            render_nodes(state, children);
+            state.closel();
         }
         El::Image(text, url) => {
-            html.space_if_needed();
-            html.singleton("img");
-            html.attr("src", url);
-            html.attr("alt", text);
-            html.finish(node.attrs());
+            state.space_if_needed();
+            state.singleton("img");
+            state.attr("src", url);
+            state.attr("alt", text);
+            state.finish(node.attrs());
         }
         El::Item(children) => {
-            html.lopen("li", node.attrs());
-            render_nodes(children, html);
-            html.close();
+            state.lopen("li", node.attrs());
+            render_nodes(state, children);
+            state.close();
         }
         El::Link(text, url) => {
-            html.space_if_needed();
-            html.start("a");
-            html.attr("href", &escape(url));
-            html.finish(node.attrs());
-            html.push_str(text);
-            html.close();
+            let mut url: &str = url;
+            if url.is_empty() && state.config.empty_links {
+                if let Some(target) = state.tree.find_link_target(text, state.page) {
+                    url = target.url();
+                }
+            }
+
+            state.space_if_needed();
+            state.start("a");
+            state.attr("href", &escape(url));
+            state.finish(node.attrs());
+            state.push_str(text);
+            state.close();
         }
         El::List(children) => {
-            html.lopen("ul", node.attrs());
-            render_nodes(children, html);
-            html.lclosel();
+            state.lopen("ul", node.attrs());
+            render_nodes(state, children);
+            state.lclosel();
         }
         El::Style(style, children) => {
             let tag = match style {
@@ -235,49 +264,57 @@ fn render(node: &Node, html: &mut Html) {
                 Style::Strikethrough => "s",
             };
 
-            html.space_if_needed();
-            html.open(tag, node.attrs());
-            render_nodes(children, html);
-            html.trim_end();
-            html.close();
-            html.space();
+            state.space_if_needed();
+            state.open(tag, node.attrs());
+            render_nodes(state, children);
+            state.trim_end();
+            state.close();
+            state.space();
         }
         El::Table(rows) => {}
         El::Text(text) => {
-            html.space_if_needed();
-            html.push_str(text);
+            state.space_if_needed();
+            state.push_str(text);
         }
     }
 }
 
-fn render_nodes(nodes: &[Node], html: &mut Html) {
+fn render_nodes(state: &mut RenderState, nodes: &[Node]) {
     for node in nodes {
-        render(node, html);
+        render(state, node);
     }
 }
 
-fn add_page_heading(page: &WikiPage, html: &mut Html) {
-    render(&Node::heading(1, vec![Node::text(page.title())]), html);
+fn add_page_heading(state: &mut RenderState, page: &WikiPage) {
+    render(state, &Node::heading(1, vec![Node::text(page.title())]));
 }
 
-fn add_page_path(tree: &WikiTree, page: &WikiPage, html: &mut Html) {
-    render(&super::nav::make_nav_breadcrumb(tree, page), html);
+fn add_page_path(state: &mut RenderState, page: &WikiPage) {
+    render(state, &super::nav::make_nav_breadcrumb(state.tree, page));
 }
 
 const FONT: &str = "https://fonts.googleapis.com/css?family=Open%20Sans";
 
 #[cfg(test)]
 pub fn render_node(node: &Node) -> String {
+    use crate::model::Doc;
+
+    let mut tree = WikiTree::new();
+    let page = tree.add_doc(WikiTree::ROOT, "document.html", "Document", Doc::empty());
+    let page = tree.get(page).unwrap();
+    let config = Config::none();
     let mut html = Html::new();
-    render(node, &mut html);
+    let mut state = RenderState {
+        tree: &tree,
+        page,
+        config: &config,
+        html: &mut html,
+    };
+    render(&mut state, node);
     html.content.trim().to_string()
 }
 
-pub fn render_document(
-    config: &Config,
-    tree: Option<&WikiTree>,
-    page: &WikiPage,
-) -> Result<String, ()> {
+pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Result<String, ()> {
     let Some(doc) = page.document() else {
         log::error(format!(
             "Can't render page with no document: {}",
@@ -287,49 +324,54 @@ pub fn render_document(
     };
 
     let mut html = Html::new();
-    let mut paragraph_open = false;
+    let mut state = RenderState {
+        tree,
+        page,
+        config,
+        html: &mut html,
+    };
 
     let empty = &HashMap::new();
 
-    html.open("html", empty);
-    html.lopenl("head", empty);
+    state.html.open("html", empty);
+    state.html.lopenl("head", empty);
 
-    html.open("title", empty);
-    render(&Node::text(page.title()), &mut html);
-    html.close();
+    state.html.open("title", empty);
+    render(&mut state, &Node::text(page.title()));
+    state.html.close();
 
-    html.lstart("style");
-    html.attr("href", FONT);
-    html.attr("rel", "stylesheet");
-    html.finish(empty);
-    html.close();
-    html.lopenl("style", empty);
-    html.push_str(&indent(include_str!("res/style.css"), html.stack.len()));
-    html.lclose();
-    html.lclose();
-    html.lopenl("body", empty);
+    state.html.lstart("style");
+    state.html.attr("href", FONT);
+    state.html.attr("rel", "stylesheet");
+    state.html.finish(empty);
+    state.html.close();
+    state.html.lopenl("style", empty);
+    state.html.push_str(&indent(
+        include_str!("res/style.css"),
+        state.html.stack.len(),
+    ));
+    state.html.lclose();
+    state.html.lclose();
+    state.html.lopenl("body", empty);
 
-    if config.nav_tree
-        && let Some(tree) = tree
-    {
-        render(&super::nav::make_nav_tree(tree, page), &mut html);
+    if config.nav_tree {
+        render(&mut state, &super::nav::make_nav_tree(tree, page));
     }
 
-    html.start("div");
-    html.attr("id", "content");
-    html.finish(empty);
-    html.lopen("main", empty);
+    state.html.start("div");
+    state.html.attr("id", "content");
+    state.html.finish(empty);
+    state.html.lopen("main", empty);
 
-    if let Some(tree) = tree {
-        if config.page_heading {
-            add_page_heading(page, &mut html);
-        }
-
-        if config.add_breadcrumbs {
-            add_page_path(tree, page, &mut html);
-        }
+    if config.page_heading {
+        add_page_heading(&mut state, page);
     }
 
+    if config.add_breadcrumbs {
+        add_page_path(&mut state, page);
+    }
+
+    let mut paragraph_open = false;
     let mut prev: Option<&Node> = None;
     for node in doc.nodes() {
         match node.el() {
@@ -337,7 +379,7 @@ pub fn render_document(
                 if paragraph_open {
                     match prev {
                         Some(n) if matches!(n.el(), El::Text(..)) => {
-                            html.lclosel();
+                            state.html.lclosel();
                             paragraph_open = false;
                         }
                         _ => {}
@@ -345,7 +387,7 @@ pub fn render_document(
                 }
 
                 if !paragraph_open {
-                    html.lopenl("p", empty);
+                    state.html.lopenl("p", empty);
                     paragraph_open = true;
                 }
             }
@@ -358,7 +400,7 @@ pub fn render_document(
             | El::List(..)
             | El::Table(..) => {
                 if paragraph_open {
-                    html.lclosel();
+                    state.html.lclosel();
                 }
                 paragraph_open = false;
             }
@@ -366,7 +408,7 @@ pub fn render_document(
             El::Empty => {}
         }
 
-        render(node, &mut html);
+        render(&mut state, node);
         prev = Some(node);
     }
 

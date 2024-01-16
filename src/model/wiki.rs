@@ -172,7 +172,7 @@ impl WikiTree {
         self.add(WikiPageInner::Media(path.into()), parent, filename, title)
     }
 
-    pub fn get(&self, id: usize) -> Option<&WikiPage> {
+    pub fn get(&self, id: Id) -> Option<&WikiPage> {
         self.nodes.get(id)
     }
 
@@ -180,7 +180,7 @@ impl WikiTree {
         node.parent().and_then(|id| self.get(id))
     }
 
-    pub fn children(&self, id: usize) -> Vec<&WikiPage> {
+    pub fn children(&self, id: Id) -> Vec<&WikiPage> {
         self.nodes
             .iter()
             .filter(|n| n.parent() == Some(id))
@@ -193,6 +193,26 @@ impl WikiTree {
 
     pub fn into_pages(self) -> Vec<WikiPage> {
         self.nodes
+    }
+
+    pub fn find_link_target(&self, target_name: &str, from: &WikiPage) -> Option<&WikiPage> {
+        let mut rectified_name = target_name.to_lowercase().replace(' ', "-");
+        rectified_name.push('.');
+        rectified_name.push_str(crate::render::OUTPUT_EXT);
+
+        let mut frontier = self.children(from.id());
+        let mut i = 0;
+        while let Some(descendent) = frontier.get(i) {
+            if descendent.filename() == rectified_name {
+                return Some(descendent);
+            }
+
+            frontier.extend(self.children(descendent.id()));
+            i += 1;
+        }
+
+        self.get_parent(from)
+            .and_then(|p| self.find_link_target(target_name, p))
     }
 
     #[cfg(debug)]
@@ -223,5 +243,31 @@ mod test {
         };
 
         assert_eq!(node.filename(), "title.html");
+    }
+
+    #[test]
+    fn test_find_link_target() {
+        let mut tree = WikiTree::new();
+        let rootdir = tree.add_dir(WikiTree::ROOT, "rootdir");
+        let rootdoc = tree.add_doc(rootdir, "file.html", "File", Doc::empty());
+        let childdir = tree.add_dir(rootdir, "childdir");
+
+        {
+            let root = tree.get(rootdir).unwrap();
+            let child = tree.get(childdir).unwrap();
+
+            assert_eq!(tree.find_link_target("file", root).unwrap().id(), rootdoc);
+            assert_eq!(tree.find_link_target("file", child).unwrap().id(), rootdoc);
+        }
+
+        let childdoc = tree.add_doc(childdir, "file.html", "File", Doc::empty());
+
+        {
+            let root = tree.get(rootdir).unwrap();
+            let child = tree.get(childdir).unwrap();
+
+            assert_eq!(tree.find_link_target("file", root).unwrap().id(), rootdoc);
+            assert_eq!(tree.find_link_target("file", child).unwrap().id(), childdoc);
+        }
     }
 }

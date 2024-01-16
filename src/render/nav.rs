@@ -153,7 +153,7 @@ mod test {
         tree.add_doc(page, "child", "Child", Doc::empty());
 
         assert_eq_lines(
-            render_node(&super::make_nav_tree(&tree, tree.get(page).unwrap())),
+            render_node(&make_nav_tree(&tree, tree.get(page).unwrap())),
             concat(&[
                 &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
                 "  <li>",
@@ -181,7 +181,7 @@ mod test {
         let mut tree = WikiTree::new();
         let dir = tree.add_dir(WikiTree::ROOT, "dir");
         assert_eq!(
-            render_node(&super::make_nav_tree(&tree, tree.get(dir).unwrap())),
+            render_node(&make_nav_tree(&tree, tree.get(dir).unwrap())),
             "<ul id=\"nav-tree\">\n</ul>"
         );
     }
@@ -192,7 +192,7 @@ mod test {
         let dir = tree.add_dir(WikiTree::ROOT, "dir");
         let idx = tree.add_index(dir, "index.html", "Index", Doc::empty());
         assert_eq!(
-            render_node(&super::make_nav_tree(&tree, tree.get(idx).unwrap())),
+            render_node(&make_nav_tree(&tree, tree.get(idx).unwrap())),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 &format!(
@@ -221,7 +221,7 @@ mod test {
         );
 
         assert_eq_lines(
-            render_node(&super::make_nav_tree(&tree, tree.get(page).unwrap())),
+            render_node(&make_nav_tree(&tree, tree.get(page).unwrap())),
             concat(&[
                 "<ul id=\"nav-tree\">",
                 "  <li>",

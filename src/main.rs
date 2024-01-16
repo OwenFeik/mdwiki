@@ -1,3 +1,4 @@
+#![feature(anonymous_lifetime_in_impl_trait)]
 #![feature(let_chains)]
 #![feature(pattern)]
 
@@ -38,7 +39,7 @@ fn create_output_path(outdir: &Path, page: &WikiPage) -> PathBuf {
     output
 }
 
-fn render_document(outdir: &Path, config: &Config, tree: Option<&WikiTree>, page: &WikiPage) {
+fn render_document(outdir: &Path, config: &Config, tree: &WikiTree, page: &WikiPage) {
     let Ok(html) = render::render_document(config, tree, page) else {
         log::error(format!("Failed to render {}", page.url()));
         return;
@@ -114,7 +115,7 @@ fn main() {
         };
 
         if let Ok(page) = parse::parse_file(&path) {
-            render_document(parent, &config, None, &page)
+            render_document(parent, &config, &WikiTree::new(), &page)
         } else {
             fail("Unable to process file for rendering.");
         }
@@ -135,7 +136,7 @@ fn main() {
 
             for page in tree.pages() {
                 if page.is_doc() || page.is_index() {
-                    render_document(&outdir, &config, Some(&tree), page);
+                    render_document(&outdir, &config, &tree, page);
                 } else if page.is_media() {
                     copy_file(page, &outdir);
                 }
