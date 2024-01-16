@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 
+#[derive(PartialEq, PartialOrd)]
 enum Level {
     Debug,
     Info,
@@ -22,8 +23,12 @@ impl Display for Level {
     }
 }
 
+const MIN_LEVEL: Level = Level::Info;
+
 fn log<S: AsRef<str>>(level: Level, msg: S) {
-    println!("{level} {}", msg.as_ref());
+    if level >= MIN_LEVEL {
+        println!("{level} {}", msg.as_ref());
+    }
 }
 
 pub fn debug<S: AsRef<str>>(msg: S) {

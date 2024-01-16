@@ -6,6 +6,8 @@ use crate::{
     model::{Attrs, El, Node, Style, WikiPage, WikiTree},
 };
 
+use super::OUTPUT_EXT;
+
 #[cfg(test)]
 mod test;
 
@@ -187,6 +189,23 @@ fn indent(string: &str, by: usize) -> String {
     String::from(string.replace('\n', &repl).trim())
 }
 
+fn target_filename(text: &str, ext: &str) -> String {
+    let mut rectified_name = text.to_lowercase().replace(' ', "-");
+    rectified_name.push('.');
+    rectified_name.push_str(ext);
+    rectified_name
+}
+
+fn handle_empty_url(state: &RenderState, filename: &str, url: &str) -> String {
+    if url.is_empty() && state.config.empty_links {
+        if let Some(target) = state.tree.find_link_target(filename, state.page) {
+            return target.url().to_string();
+        }
+    }
+
+    url.to_string()
+}
+
 fn render(state: &mut RenderState, node: &Node) {
     match node.el() {
         El::Empty => (),
@@ -226,9 +245,25 @@ fn render(state: &mut RenderState, node: &Node) {
             state.closel();
         }
         El::Image(text, url) => {
+            let mut url: String = url.clone();
+            for ext in crate::parse::IMAGE_EXTS {
+                if url.is_empty() {
+                    url = handle_empty_url(state, &target_filename(text, ext), &url);
+                } else {
+                    break;
+                }
+            }
+
+            if url.is_empty() {
+                log::warning(format!(
+                    "Failed to find URL for image \"{text}\" on {}",
+                    state.page.url()
+                ))
+            }
+
             state.space_if_needed();
             state.singleton("img");
-            state.attr("src", url);
+            state.attr("src", &escape(&url));
             state.attr("alt", text);
             state.finish(node.attrs());
         }
@@ -238,16 +273,18 @@ fn render(state: &mut RenderState, node: &Node) {
             state.close();
         }
         El::Link(text, url) => {
-            let mut url: &str = url;
-            if url.is_empty() && state.config.empty_links {
-                if let Some(target) = state.tree.find_link_target(text, state.page) {
-                    url = target.url();
-                }
+            let url = handle_empty_url(state, &target_filename(text, OUTPUT_EXT), url);
+
+            if url.is_empty() {
+                log::warning(format!(
+                    "Failed to find URL for link \"{text}\" on {}",
+                    state.page.url()
+                ))
             }
 
             state.space_if_needed();
             state.start("a");
-            state.attr("href", &escape(url));
+            state.attr("href", &escape(&url));
             state.finish(node.attrs());
             state.push_str(text);
             state.close();

@@ -8,6 +8,8 @@ mod md;
 #[cfg(test)]
 pub use self::md::parse_document;
 
+pub use self::fs::IMAGE_EXTS;
+
 pub fn parse_file(path: &Path) -> Result<WikiPage, ()> {
     let mut tree = WikiTree::new();
     fs::process_document(&mut tree, WikiTree::ROOT, path);

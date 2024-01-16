@@ -7,7 +7,7 @@ use crate::{
 };
 
 const INPUT_EXT: &str = "md";
-const RESOURCE_EXTS: &[&str] = &["jpg", "jpeg", "png"];
+pub const IMAGE_EXTS: &[&str] = &["jpg", "jpeg", "png"];
 
 fn is_hidden(path: &Path) -> bool {
     path.file_name()
@@ -63,12 +63,6 @@ pub fn process_directory(
         return;
     };
 
-    log::info(format!(
-        "Rendering {} to {}",
-        indir.display(),
-        outdir.display()
-    ));
-
     let Some(name) = indir.file_name() else {
         log::error(format!("Couldn't read file name of {}", indir.display()));
         return;
@@ -91,7 +85,7 @@ pub fn process_directory(
                 if let Some(Some(ext)) = file_path.extension().map(OsStr::to_str) {
                     if ext == INPUT_EXT {
                         process_document(tree, node, &file_path);
-                    } else if RESOURCE_EXTS.contains(&ext) {
+                    } else if IMAGE_EXTS.contains(&ext) {
                         if let Some(name) = file_path
                             .file_name()
                             .and_then(OsStr::to_str)

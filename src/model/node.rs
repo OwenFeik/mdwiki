@@ -197,8 +197,7 @@ impl El {
     fn is_empty(&self) -> bool {
         match self {
             El::Empty => true,
-            El::Image(_, url) => url.is_empty(),
-            El::Link(text, _) => text.is_empty(),
+            El::Image(text, url) | El::Link(text, url) => text.is_empty() && url.is_empty(),
             El::Div(children)
             | El::Span(children)
             | El::Style(_, children)

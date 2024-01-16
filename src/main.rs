@@ -48,7 +48,7 @@ fn render_document(outdir: &Path, config: &Config, tree: &WikiTree, page: &WikiP
     let destination = create_output_path(outdir, page);
 
     if std::fs::write(&destination, html).is_ok() {
-        log::info(format!(
+        log::debug(format!(
             "Rendered {} to {}",
             page.url(),
             destination.display()
@@ -64,7 +64,7 @@ fn copy_file(media: &WikiPage, outdir: &Path) {
         if let Err(e) = std::fs::copy(file, &destination) {
             log::error(format!("Failed to copy file ({}): {e}", file.display()));
         } else {
-            log::info(format!(
+            log::debug(format!(
                 "Copied {} to {}",
                 file.display(),
                 destination.display()
@@ -141,6 +141,12 @@ fn main() {
                     copy_file(page, &outdir);
                 }
             }
+
+            log::info(format!(
+                "Successfully rendered {} to {}",
+                indir.display(),
+                outdir.display()
+            ));
         } else {
             fail("Couldn't choose an output directory for files.");
         }

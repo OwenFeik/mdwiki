@@ -3,7 +3,8 @@ pub struct Config {
     /// example:
     /// `[City]()` would be rendered as `<a href="/path/city.html">City</a>`
     /// if that file exists in the tree. The nearest relative of the page the
-    /// link is in will be used.
+    /// link is in will be used. The title is converted to kebab case to find
+    /// an appropriate file.
     pub empty_links: bool,
 
     /// Whether to generate index.html for directories in which it doesn't

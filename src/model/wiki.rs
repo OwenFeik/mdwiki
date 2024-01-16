@@ -195,15 +195,11 @@ impl WikiTree {
         self.nodes
     }
 
-    pub fn find_link_target(&self, target_name: &str, from: &WikiPage) -> Option<&WikiPage> {
-        let mut rectified_name = target_name.to_lowercase().replace(' ', "-");
-        rectified_name.push('.');
-        rectified_name.push_str(crate::render::OUTPUT_EXT);
-
+    pub fn find_link_target(&self, target_filename: &str, from: &WikiPage) -> Option<&WikiPage> {
         let mut frontier = self.children(from.id());
         let mut i = 0;
         while let Some(descendent) = frontier.get(i) {
-            if descendent.filename() == rectified_name {
+            if descendent.filename() == target_filename {
                 return Some(descendent);
             }
 
@@ -212,7 +208,7 @@ impl WikiTree {
         }
 
         self.get_parent(from)
-            .and_then(|p| self.find_link_target(target_name, p))
+            .and_then(|p| self.find_link_target(target_filename, p))
     }
 
     #[cfg(debug)]

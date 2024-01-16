@@ -164,6 +164,14 @@ fn test_parse_image() {
 }
 
 #[test]
+fn test_parse_image_no_url() {
+    assert_eq!(
+        super::parse_node("![World map]()").1,
+        Node::image("World map", "")
+    )
+}
+
+#[test]
 fn test_strikethrough() {
     assert_eq!(
         super::parse_node("~struckthrough~").1,
@@ -196,5 +204,17 @@ fn test_parse_table() {
                 vec![Node::style(Style::Bold, vec![Node::text("bold")])]
             ]
         ])])
+    )
+}
+
+#[test]
+fn test_last_el_image() {
+    assert_eq!(
+        super::parse_document("# Nations\n\n![World map]()\n"),
+        vec![
+            Node::heading(1, vec![Node::text("Nations")]),
+            Node::image("World map", "")
+        ]
+        .into()
     )
 }
