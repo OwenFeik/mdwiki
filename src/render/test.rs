@@ -2,8 +2,10 @@ use super::*;
 
 pub fn assert_eq_lines<S1: AsRef<str>, S2: AsRef<str>>(actual: S1, expected: S2) {
     let (real, goal) = (actual.as_ref(), expected.as_ref());
-    dbg!(real);
-    dbg!(goal);
+    println!("=== Actual:");
+    println!("{real}\n");
+    println!("=== Expected:");
+    println!("{goal}\n");
     for (la, lb) in actual.as_ref().lines().zip(expected.as_ref().lines()) {
         assert_eq!(la, lb, "Expected {la} to be {lb}.")
     }

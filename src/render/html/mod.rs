@@ -399,8 +399,11 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
     let mut paragraph_open = false;
     let mut prev: Option<&Node> = None;
     for node in doc.nodes() {
+        let mut paragraph_needed = false;
         match node.el() {
             El::Code(..) | El::Text(..) => {
+                paragraph_needed = true;
+
                 if paragraph_open {
                     match prev {
                         Some(n) if matches!(n.el(), El::Text(..)) => {
@@ -410,11 +413,9 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
                         _ => {}
                     }
                 }
-
-                if !paragraph_open {
-                    state.html.lopenl("p", empty);
-                    paragraph_open = true;
-                }
+            }
+            El::Link(..) | El::Style(..) => {
+                paragraph_needed = true;
             }
             El::Div(..)
             | El::Span(..)
@@ -430,7 +431,12 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
                 paragraph_open = false;
             }
             El::Item(..) => log::warning("List item at root level."),
-            El::Empty | El::Link(..) | El::Style(..) => {}
+            El::Empty => {}
+        }
+
+        if !paragraph_open && paragraph_needed {
+            state.html.lopenl("p", empty);
+            paragraph_open = true;
         }
 
         render(&mut state, node);

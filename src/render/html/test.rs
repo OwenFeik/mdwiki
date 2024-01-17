@@ -60,17 +60,21 @@ fn wrap_main(title: &str, main: &[&str]) -> String {
     concat(&lines.iter().map(|s| s.as_str()).collect::<Vec<&str>>())
 }
 
-#[test]
-fn test_render_heading() {
-    let title = "Hello World";
-    let (tree, page) = make_file(
-        vec![Node::heading(1, vec![Node::text("Hello World")])].into(),
-        title,
-    );
+fn test_render_document(doc: impl Into<Doc>, main: &[&str]) {
+    let title = "Page Title";
+    let (tree, page) = make_file(doc.into(), title);
     assert_eq_lines(
         render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
-        wrap_main(title, &["<h1>Hello World</h1>"]),
-    )
+        wrap_main(title, main),
+    );
+}
+
+#[test]
+fn test_render_heading() {
+    test_render_document(
+        vec![Node::heading(1, vec![Node::text("Hello World")])],
+        &["<h1>Hello World</h1>"],
+    );
 }
 
 #[test]
@@ -113,30 +117,25 @@ fn test_escaping() {
 
 #[test]
 fn test_full_document() {
-    let title = "Test Markdown File";
-    let (tree, page) = make_file(crate::parse::parse_document(MD.trim()), title);
-    assert_eq_lines(
-        render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
-        wrap_main(
-            title,
-            &[
-                "<h1>Test Markdown File</h1>",
-                "<p>",
-                "  This is a test markdown file. It should",
-                "</p>",
-                "<ul>",
-                "  <li>Parse lists",
-                "    <ul>",
-                "      <li>Including sub lists</li>",
-                "      <li>And <b>bold</b> and <i>italics</i></li>",
-                r#"      <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
-                "    </ul>",
-                "  </li>",
-                "</ul>",
-                "<h2>Handle Subheadings</h2>",
-            ],
-        ),
-    )
+    test_render_document(
+        crate::parse::parse_document(MD.trim()),
+        &[
+            "<h1>Test Markdown File</h1>",
+            "<p>",
+            "  This is a test markdown file. It should",
+            "</p>",
+            "<ul>",
+            "  <li>Parse lists",
+            "    <ul>",
+            "      <li>Including sub lists</li>",
+            "      <li>And <b>bold</b> and <i>italics</i></li>",
+            r#"      <li>And <a href="https://owen.feik.xyz">links</a> and <img src="https://example.org/example.jpg" alt="images"></li>"#,
+            "    </ul>",
+            "  </li>",
+            "</ul>",
+            "<h2>Handle Subheadings</h2>",
+        ],
+    );
 }
 
 #[test]
@@ -174,26 +173,31 @@ fn test_details() {
 }
 
 #[test]
-fn test_inline_link() {
-    let title = "Page Title";
-    let (tree, page) = make_file(
+fn test_link_doesnt_break_paragraph() {
+    test_render_document(
         vec![
             Node::text("Some text"),
             Node::link("Link text", "http://url"),
-        ]
-        .into(),
-        title,
+        ],
+        &[
+            "<p>",
+            "  Some text <a href=\"http://url\">Link text</a>",
+            "</p>",
+        ],
     );
+}
 
-    assert_eq_lines(
-        render_document(&Config::none(), &tree, tree.get(page).unwrap()).unwrap(),
-        wrap_main(
-            title,
-            &[
-                "<p>",
-                "  Some text <a href=\"http://url\">Link text</a>",
-                "</p>",
-            ],
-        ),
-    );
+#[test]
+fn test_link_included_in_paragraph() {
+    test_render_document(
+        vec![
+            Node::link("Link text", "http://url"),
+            Node::text("Some text"),
+        ],
+        &[
+            "<p>",
+            "  <a href=\"http://url\">Link text</a> Some text",
+            "</p>",
+        ],
+    )
 }
