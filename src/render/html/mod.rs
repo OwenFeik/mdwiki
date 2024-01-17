@@ -189,16 +189,9 @@ fn indent(string: &str, by: usize) -> String {
     String::from(string.replace('\n', &repl).trim())
 }
 
-fn target_filename(text: &str, ext: &str) -> String {
-    let mut rectified_name = text.to_lowercase().replace(' ', "-");
-    rectified_name.push('.');
-    rectified_name.push_str(ext);
-    rectified_name
-}
-
-fn handle_empty_url(state: &RenderState, filename: &str, url: &str) -> String {
+fn handle_empty_url(state: &RenderState, text: &str, ext: &str, url: &str) -> String {
     if url.is_empty() && state.config.empty_links {
-        if let Some(target) = state.tree.find_link_target(filename, state.page) {
+        if let Some(target) = state.tree.find_link_target(text, ext, state.page) {
             return target.url().to_string();
         }
     }
@@ -248,7 +241,7 @@ fn render(state: &mut RenderState, node: &Node) {
             let mut url: String = url.clone();
             for ext in crate::parse::IMAGE_EXTS {
                 if url.is_empty() {
-                    url = handle_empty_url(state, &target_filename(text, ext), &url);
+                    url = handle_empty_url(state, text, ext, &url);
                 } else {
                     break;
                 }
@@ -273,7 +266,7 @@ fn render(state: &mut RenderState, node: &Node) {
             state.close();
         }
         El::Link(text, url) => {
-            let url = handle_empty_url(state, &target_filename(text, OUTPUT_EXT), url);
+            let url = handle_empty_url(state, text, OUTPUT_EXT, url);
 
             if url.is_empty() {
                 log::warning(format!(
