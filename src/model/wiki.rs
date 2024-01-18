@@ -48,10 +48,6 @@ impl WikiPage {
         }
     }
 
-    pub fn extension(&self) -> &str {
-        self.filename().split('.').last().unwrap_or("")
-    }
-
     pub fn title(&self) -> &str {
         &self.title
     }

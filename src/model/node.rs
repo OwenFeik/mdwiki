@@ -83,10 +83,6 @@ impl Node {
         Self::new(El::Table(children))
     }
 
-    pub fn div(children: Vec<Node>) -> Self {
-        Self::new(El::Div(children))
-    }
-
     pub fn span(children: Vec<Node>) -> Self {
         Self::new(El::Span(children))
     }
@@ -132,7 +128,6 @@ impl Node {
     pub fn el_text(&self) -> Option<&str> {
         match &self.element {
             El::Empty
-            | El::Div(_)
             | El::Span(_)
             | El::Details(_, _)
             | El::Item(_)
@@ -159,7 +154,6 @@ impl Node {
 #[derive(Debug, Eq, PartialEq)]
 pub enum El {
     Empty,
-    Div(Vec<Node>),                    // (children)
     Span(Vec<Node>),                   // (children)
     Code(String),                      // (code)
     Codeblock(Option<String>, String), // (lang, code)
@@ -178,8 +172,7 @@ impl El {
     fn add_text(&mut self, text: &str) {
         match self {
             El::Empty | El::Image(..) | El::Link(..) | El::Table(..) => (),
-            El::Div(children)
-            | El::Span(children)
+            El::Span(children)
             | El::Details(_, children)
             | El::Style(_, children)
             | El::Heading(_, children)
@@ -198,8 +191,7 @@ impl El {
         match self {
             El::Empty => true,
             El::Image(text, url) | El::Link(text, url) => text.is_empty() && url.is_empty(),
-            El::Div(children)
-            | El::Span(children)
+            El::Span(children)
             | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)

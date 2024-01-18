@@ -38,11 +38,6 @@ impl Html {
         self.stack.push(String::from(tag));
     }
 
-    fn lstart(&mut self, tag: &str) {
-        self.indent(self.stack.len());
-        self.start(tag);
-    }
-
     fn open(&mut self, tag: &str, attrs: &Attrs) {
         self.start(tag);
         self.finish(attrs);
@@ -202,11 +197,6 @@ fn handle_empty_url(state: &RenderState, text: &str, ext: &str, url: &str) -> St
 fn render(state: &mut RenderState, node: &Node) {
     match node.el() {
         El::Empty => (),
-        El::Div(children) => {
-            state.html.lopenl("div", node.attrs());
-            render_nodes(state, children);
-            state.lclosel();
-        }
         El::Span(children) => {
             state.space_if_needed();
             state.open("span", node.attrs());
@@ -301,9 +291,9 @@ fn render(state: &mut RenderState, node: &Node) {
             state.close();
             state.space();
         }
-        El::Table(rows) => {}
+        El::Table(_rows) => {}
         El::Text(text) => {
-            if text.starts_with(char::is_alphanumeric) {
+            if text.starts_with(char::is_alphanumeric) || text.starts_with('/') {
                 state.space_if_needed();
             }
             state.push_str(text);
@@ -417,8 +407,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
             El::Link(..) | El::Style(..) => {
                 paragraph_needed = true;
             }
-            El::Div(..)
-            | El::Span(..)
+            El::Span(..)
             | El::Codeblock(..)
             | El::Details(..)
             | El::Heading(..)
