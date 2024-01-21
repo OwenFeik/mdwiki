@@ -25,24 +25,24 @@ impl Display for Level {
 
 const MIN_LEVEL: Level = Level::Info;
 
-fn log<S: AsRef<str>>(level: Level, msg: S) {
+fn log<D: Display>(level: Level, msg: D) {
     if level >= MIN_LEVEL {
-        println!("{level} {}", msg.as_ref());
+        println!("{level} {}", msg);
     }
 }
 
-pub fn debug<S: AsRef<str>>(msg: S) {
+pub fn debug<D: Display>(msg: D) {
     log(Level::Debug, msg);
 }
 
-pub fn info<S: AsRef<str>>(msg: S) {
+pub fn info<D: Display>(msg: D) {
     log(Level::Info, msg);
 }
 
-pub fn warning<S: AsRef<str>>(msg: S) {
+pub fn warning<D: Display>(msg: D) {
     log(Level::Warning, msg);
 }
 
-pub fn error<S: AsRef<str>>(msg: S) {
+pub fn error<D: Display>(msg: D) {
     log(Level::Error, msg);
 }

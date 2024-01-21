@@ -8,6 +8,8 @@ use crate::{
 
 use super::OUTPUT_EXT;
 
+mod aes;
+
 #[cfg(test)]
 mod test;
 

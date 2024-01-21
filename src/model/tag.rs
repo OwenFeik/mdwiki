@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct Tag(Box<str>);
 
 impl Tag {

@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use crate::model::Tag;
+
 pub struct Config {
     /// Whether to support empty links by attempting to rewrite them. For
     /// example:
@@ -24,6 +28,10 @@ pub struct Config {
     /// Whether to add a series of breadcrumbs with links for all ancestors of
     /// the current directory above the first node.
     pub add_breadcrumbs: bool,
+
+    /// Passwords associated with tags. Including a password here will cause
+    /// all nodes with the given tag to be AES encoded with the given password.
+    pub tag_passwords: HashMap<Tag, String>,
 }
 
 impl Config {
@@ -35,18 +43,22 @@ impl Config {
             nav_tree: false,
             page_heading: false,
             add_breadcrumbs: false,
+            tag_passwords: HashMap::new(),
         }
     }
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let mut tag_passwords = HashMap::new();
+        tag_passwords.insert("dm".into(), "skoraeus".to_string());
         Self {
             empty_links: true,
             generate_indexes: true,
             nav_tree: true,
             page_heading: false,
             add_breadcrumbs: true,
+            tag_passwords,
         }
     }
 }
