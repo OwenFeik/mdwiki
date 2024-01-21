@@ -218,3 +218,28 @@ fn test_last_el_image() {
         .into()
     )
 }
+
+#[test]
+fn test_parse_doc_tags() {
+    assert_eq!(
+        super::parse_document("#tag1 #tag2 #tag3\n# My page"),
+        Doc::from(vec![Node::heading(1, vec![Node::text("My page")])
+            .with_tags(vec!["tag1".into(), "tag2".into(), "tag3".into()])],)
+    )
+}
+
+#[test]
+fn test_parse_inline_tags() {
+    assert_eq!(
+        super::parse_document("#headingtag # My #styletag *page*"),
+        Doc::from(vec![Node::heading(
+            1,
+            vec![
+                Node::text("My"),
+                Node::style(Style::Italic, vec![Node::text("page")])
+                    .with_tags(vec!["styletag".into()])
+            ]
+        )
+        .with_tags(vec!["headingtag".into()])])
+    )
+}

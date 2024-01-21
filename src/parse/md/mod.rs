@@ -2,7 +2,7 @@
 
 use std::str::pattern::Pattern;
 
-use crate::model::{Doc, El, Node, Style, HEADING_MAX_LEVEL};
+use crate::model::{Doc, El, Node, Style, Tag, HEADING_MAX_LEVEL};
 
 #[cfg(test)]
 mod test;
@@ -76,6 +76,10 @@ fn starts_with_empty_line(input: &str) -> bool {
     false
 }
 
+fn second_char_matches(input: &str, pred: impl Fn(char) -> bool) -> bool {
+    input.chars().nth(1).map(pred).unwrap_or(false)
+}
+
 fn consume<'a, P>(input: &'a str, condition: P) -> (&'a str, &'a str)
 where
     P: Pattern<'a>,
@@ -104,6 +108,36 @@ fn parse_heading(input: &str) -> (&str, Node) {
     let level = hashes.len().min(HEADING_MAX_LEVEL.into()) as u8;
     let (rest, text) = consume(rest.trim_start(), '\n');
     (rest, Node::heading(level, parse(text, false)))
+}
+
+fn parse_tags(input: &str) -> (&str, Vec<Tag>) {
+    let mut tags = Vec::new();
+    let mut rest = input.trim_start();
+    while rest.starts_with('#') && second_char_matches(rest, char::is_alphabetic) {
+        let tag;
+        (rest, tag) = consume(drop_first(rest), |c: char| !c.is_alphanumeric());
+        rest = rest.trim_start();
+
+        if !tag.is_empty() {
+            tags.push(tag.into());
+        }
+    }
+    (rest, tags)
+}
+
+fn parse_heading_or_tags(input: &str) -> (&str, Node) {
+    if input
+        .chars()
+        .nth(1)
+        .map(|c| c.is_alphabetic())
+        .unwrap_or(false)
+    {
+        let (rest, tags) = parse_tags(input);
+        let (rest, node) = parse_node(rest);
+        (rest, node.with_tags(tags))
+    } else {
+        parse_heading(input)
+    }
 }
 
 fn parse_style(input: &str) -> (&str, Node) {
@@ -333,7 +367,7 @@ fn _parse_node(input: &str, at_line_start: bool) -> (&str, Node) {
     match first_solid(rest) {
         None => ("", Node::empty()),
         Some('`') => parse_code(rest),
-        Some('#') => parse_heading(rest),
+        Some('#') => parse_heading_or_tags(rest),
         Some('*') if at_line_start => parse_list(rest),
         Some('*') | Some('~') => parse_style(rest),
         Some('[') => parse_link(rest),

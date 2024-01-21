@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use super::Tag;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Style {
     Bold,
@@ -13,8 +15,9 @@ pub type Attrs = HashMap<String, String>;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Node {
-    attributes: Attrs,
     element: El,
+    attributes: Attrs,
+    tags: Vec<Tag>,
 }
 
 impl Node {
@@ -22,6 +25,7 @@ impl Node {
         Self {
             attributes: HashMap::new(),
             element,
+            tags: Vec::new(),
         }
     }
 
@@ -148,6 +152,15 @@ impl Node {
             El::Image(_, url) | El::Link(_, url) => Some(url),
             _ => None,
         }
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
+    pub fn with_tags(mut self, tags: Vec<Tag>) -> Self {
+        self.tags = tags;
+        self
     }
 }
 

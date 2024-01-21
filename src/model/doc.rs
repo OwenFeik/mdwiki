@@ -1,4 +1,4 @@
-use super::{El, Node};
+use super::{El, Node, Tag};
 
 #[derive(Debug, PartialEq)]
 pub struct Doc(Vec<Node>);
@@ -6,6 +6,14 @@ pub struct Doc(Vec<Node>);
 impl Doc {
     pub fn nodes(&self) -> &[Node] {
         &self.0
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        if let Some(node) = self.nodes().first() {
+            node.tags()
+        } else {
+            &[]
+        }
     }
 
     pub fn title_from_heading(&self) -> Option<String> {
