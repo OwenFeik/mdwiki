@@ -25,5 +25,5 @@ standard markdown that are supported are
     following element. Note that these tags are differentiated from headings
     by requiring an alphabetic character immediately after the `#`. Thus a space
     is required for headings. Currently the following tags have an effect:
-    * (TODO) `#dm` causes the element not to be rendered for dm builds.
+    * `#dm` causes the element to be encrypted, requiring a password to decrypt.
 

@@ -97,3 +97,7 @@ a:visited {
     filter: saturate(100%);
     opacity: 1;
 }
+
+.secret {
+    display: none;
+}

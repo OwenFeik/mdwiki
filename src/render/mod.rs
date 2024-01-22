@@ -4,7 +4,7 @@ mod nav;
 #[cfg(test)]
 mod test;
 
-pub use self::html::render_document;
+pub use self::html::{render_document, CSS_CLASS_ATTR};
 pub use self::nav::create_index;
 
 pub const INDEX_FILE: &str = "index.html";
@@ -28,4 +28,20 @@ pub fn capitalise(title: &str) -> String {
         .map(capitalise_word)
         .collect::<Vec<String>>()
         .join(" ")
+}
+
+#[cfg(test)]
+fn render_node(node: &crate::model::Node) -> String {
+    use crate::model::WikiTree;
+
+    let mut tree = WikiTree::new();
+    let page = tree.add_doc(
+        WikiTree::ROOT,
+        "document.html",
+        "Document",
+        crate::model::Doc::empty(),
+    );
+    let page = tree.get(page).unwrap();
+    let config = crate::config::Config::none();
+    html::render_node_only(&config, &tree, page, node)
 }

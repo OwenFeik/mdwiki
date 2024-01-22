@@ -1,6 +1,9 @@
 use crate::{
     model::{Doc, Id, Node},
-    render::test::{assert_eq_lines, concat},
+    render::{
+        render_node,
+        test::{assert_eq_lines, concat},
+    },
 };
 
 use super::*;
@@ -200,4 +203,26 @@ fn test_link_included_in_paragraph() {
             "</p>",
         ],
     )
+}
+
+#[test]
+fn test_encrypted_nodes() {
+    let config = &Config::default();
+    let mut tree = WikiTree::new();
+    let page = tree.add_doc(WikiTree::ROOT, "myfile.html", "My File", Doc::empty());
+    let page = tree.get(page).unwrap();
+    let heading = Node::heading(1, vec![Node::text("abcd")]).with_tags(vec!["dm".into()]);
+    let nodes = vec![
+        heading,
+        Node::text("Some body text !!!"),
+        Node::heading(1, vec![Node::text("efgh")]),
+    ];
+    let html = render_nodes_only(config, &tree, page, &nodes, false);
+    assert!(!html.contains("<h1>abcd</h1>"));
+    assert!(!html.contains("Some body text !!!"));
+    assert!(html.contains("<h1>efgh</h1>"));
+    assert!(html.starts_with("<span"));
+    assert!(html.contains("class=\"secret\""));
+    assert!(html.contains("nonces=\""));
+    assert!(html.contains("tags=\"dm\""));
 }

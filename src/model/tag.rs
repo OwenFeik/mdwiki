@@ -12,3 +12,9 @@ impl From<&str> for Tag {
         Tag::new(value)
     }
 }
+
+impl AsRef<str> for Tag {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}

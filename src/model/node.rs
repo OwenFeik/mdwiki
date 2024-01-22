@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::render::CSS_CLASS_ATTR;
+
 use super::Tag;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -102,6 +104,14 @@ impl Node {
     pub fn attr(&mut self, key: &str, value: &str) {
         self.attributes
             .insert(key.trim().to_string(), value.trim().to_string());
+    }
+
+    pub fn with_class(self, value: &str) -> Self {
+        let class = match self.attrs().get(CSS_CLASS_ATTR) {
+            Some(class) => format!("{} {}", class, value),
+            None => value.to_string(),
+        };
+        self.with_attr(CSS_CLASS_ATTR, &class)
     }
 
     pub fn with_attr(mut self, key: &str, value: &str) -> Self {

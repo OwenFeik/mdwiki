@@ -1,6 +1,7 @@
 use crate::model::{Doc, Node, WikiPage, WikiTree};
 
-const CSS_CLASS_ATTR: &str = "class";
+use super::CSS_CLASS_ATTR;
+
 const CSS_ID_ATTR: &str = "id";
 const CSS_CLASS_THIS_PAGE: &str = "nav-tree-selected";
 const CSS_CLASS_BULLET: &str = "nav-tree-bullet";
@@ -48,7 +49,7 @@ fn make_nav_subtree<'a>(tree: &'a WikiTree, mut current: &'a WikiPage, page: &'a
         node
     } else if !current.is_dir() {
         Node::item(vec![
-            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+            Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
             link,
         ])
     } else {
@@ -105,8 +106,9 @@ pub fn create_index(page: &WikiPage, children: &[&WikiPage]) -> Doc {
 #[cfg(test)]
 mod test {
     use crate::render::{
-        html::render_node,
+        render_node,
         test::{assert_eq_lines, concat},
+        CSS_CLASS_ATTR,
     };
 
     use super::*;
@@ -125,15 +127,14 @@ mod test {
             Node::list(vec![Node::item(vec![Node::details(
                 vec![Node::link("Index", "/index")],
                 vec![Node::list(vec![Node::item(vec![Node::details(
-                    vec![Node::link("Country!", "/index/country")
-                        .with_attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE)],
+                    vec![Node::link("Country!", "/index/country").with_class(CSS_CLASS_THIS_PAGE)],
                     vec![Node::list(vec![
                         Node::item(vec![
-                            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
                             Node::link("Citya", "/index/country/citya")
                         ]),
                         Node::item(vec![
-                            Node::span(Vec::new()).with_attr(CSS_CLASS_ATTR, CSS_CLASS_BULLET),
+                            Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
                             Node::link("Cityb", "/index/country/cityb")
                         ]),
                     ])]
