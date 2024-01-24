@@ -469,30 +469,34 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
 
     let empty = &HashMap::new();
 
-    state.html.open("html", empty);
-    state.html.lopenl("head", empty);
+    state.open("html", empty);
+    state.lopenl("head", empty);
 
-    state.html.open("title", empty);
+    state.open("title", empty);
     render(&mut state, &Node::text(page.title()), false);
-    state.html.close();
+    state.close();
 
-    state.html.lopenl("style", empty);
-    state.html.push_str(&indent(
-        include_str!("res/style.css"),
-        state.html.stack.len(),
-    ));
-    state.html.lclose();
-    state.html.lclose();
-    state.html.lopenl("body", empty);
+    let indent_by = state.stack.len();
+
+    state.lopenl("style", empty);
+    state.push_str(&indent(include_str!("res/style.css"), indent_by));
+    state.lclose();
+
+    state.lopenl("script", empty);
+    state.push_str(&indent(include_str!("res/decrypt.js"), indent_by));
+    state.lclose();
+
+    state.lclose();
+    state.lopenl("body", empty);
 
     if config.nav_tree {
         render(&mut state, &super::nav::make_nav_tree(tree, page), false);
     }
 
-    state.html.start("div");
-    state.html.attr("id", "content");
-    state.html.finish(empty);
-    state.html.lopen("main", empty);
+    state.start("div");
+    state.attr("id", "content");
+    state.finish(empty);
+    state.lopen("main", empty);
 
     if config.page_heading {
         add_page_heading(&mut state, page);
