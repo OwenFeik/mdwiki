@@ -12,7 +12,10 @@ fn style() -> String {
     let mut style = String::new();
     style.push_str("    <style>\n      ");
     style.push_str(&indent(include_str!("res/style.css"), 3));
-    style.push_str("\n    </style>");
+    style.push_str("\n    </style>\n");
+    style.push_str("    <script>\n      ");
+    style.push_str(&indent(include_str!("res/decrypt.js"), 3));
+    style.push_str("\n    </script>");
     style
 }
 

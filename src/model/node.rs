@@ -89,8 +89,16 @@ impl Node {
         Self::new(El::Table(children))
     }
 
+    pub fn block<S: ToString>(tag: S, children: Vec<Node>) -> Self {
+        Self::new(El::Block(tag.to_string(), children))
+    }
+
+    pub fn inline<S: ToString>(tag: S, children: Vec<Node>) -> Self {
+        Self::new(El::Inline(tag.to_string(), children))
+    }
+
     pub fn span(children: Vec<Node>) -> Self {
-        Self::new(El::Span(children))
+        Self::inline("span", children)
     }
 
     pub fn empty() -> Self {
@@ -142,7 +150,8 @@ impl Node {
     pub fn el_text(&self) -> Option<&str> {
         match &self.element {
             El::Empty
-            | El::Span(_)
+            | El::Block(_, _)
+            | El::Inline(_, _)
             | El::Details(_, _)
             | El::Item(_)
             | El::List(_)
@@ -177,7 +186,8 @@ impl Node {
 #[derive(Debug, Eq, PartialEq)]
 pub enum El {
     Empty,
-    Span(Vec<Node>),                   // (children)
+    Block(String, Vec<Node>),          // (tag, children)
+    Inline(String, Vec<Node>),         // (tag, children)
     Code(String),                      // (code)
     Codeblock(Option<String>, String), // (lang, code)
     Details(Vec<Node>, Vec<Node>),     // (summary, details)
@@ -195,7 +205,8 @@ impl El {
     fn add_text(&mut self, text: &str) {
         match self {
             El::Empty | El::Image(..) | El::Link(..) | El::Table(..) => (),
-            El::Span(children)
+            El::Block(_, children)
+            | El::Inline(_, children)
             | El::Details(_, children)
             | El::Style(_, children)
             | El::Heading(_, children)
@@ -214,7 +225,8 @@ impl El {
         match self {
             El::Empty => true,
             El::Image(text, url) | El::Link(text, url) => text.is_empty() && url.is_empty(),
-            El::Span(children)
+            El::Block(_, children)
+            | El::Inline(_, children)
             | El::Style(_, children)
             | El::Heading(_, children)
             | El::Item(children)

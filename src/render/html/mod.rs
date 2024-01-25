@@ -21,6 +21,7 @@ struct Html {
     content: String,
     stack: Vec<String>,
     just_closed: Option<String>,
+    indent_adjust: usize,
 }
 
 impl Html {
@@ -29,6 +30,7 @@ impl Html {
             content: String::new(),
             stack: Vec::new(),
             just_closed: None,
+            indent_adjust: 0,
         }
     }
 
@@ -117,7 +119,7 @@ impl Html {
 
     fn indent(&mut self, n: usize) {
         self.nl();
-        self.push_str(&" ".repeat(n * TABSIZE));
+        self.push_str(&" ".repeat((n + self.indent_adjust) * TABSIZE));
     }
 
     fn push(&mut self, c: char) {
@@ -228,9 +230,14 @@ fn render(state: &mut RenderState, node: &Node, skip_encryption: bool) {
 
     match node.el() {
         El::Empty => (),
-        El::Span(children) => {
+        El::Block(tag, children) => {
+            state.lopenl(tag, node.attrs());
+            render_nodes(state, children, false);
+            state.lclose();
+        }
+        El::Inline(tag, children) => {
             state.space_if_needed();
-            state.open("span", node.attrs());
+            state.open(tag, node.attrs());
             render_nodes(state, children, false);
             state.close();
         }
@@ -450,6 +457,98 @@ fn handle_encryption_section(state: &mut RenderState, nodes: &[Node]) -> Option<
     }
 }
 
+fn header(title: &str) -> Node {
+    Node::block(
+        "head",
+        vec![
+            Node::inline("title", vec![Node::text(title)]),
+            Node::block(
+                "style",
+                vec![Node::text(&indent(include_str!("res/style.css"), 3))],
+            ),
+            Node::block(
+                "script",
+                vec![Node::text(&indent(include_str!("res/decrypt.js"), 3))],
+            ),
+        ],
+    )
+}
+
+fn render_root_range(state: &RenderState, range: &[Node]) -> String {
+    let mut html = Html::new();
+    html.indent_adjust = state.stack.len();
+    let mut state = RenderState {
+        tree: state.tree,
+        page: state.page,
+        config: state.config,
+        html: &mut html,
+    };
+
+    let empty = &HashMap::new();
+    let mut skip = 0;
+    let mut paragraph_open = false;
+    let mut prev: Option<&Node> = None;
+    for (i, node) in range.iter().enumerate() {
+        if skip > 0 {
+            skip -= 1;
+            continue;
+        }
+
+        let mut paragraph_needed = false;
+        match node.el() {
+            El::Code(..) | El::Text(..) => {
+                paragraph_needed = true;
+
+                if paragraph_open {
+                    match prev {
+                        Some(n) if matches!(n.el(), El::Text(..)) => {
+                            state.lclosel();
+                            paragraph_open = false;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            El::Link(..) | El::Style(..) => {
+                paragraph_needed = true;
+            }
+            El::Block(..)
+            | El::Inline(..)
+            | El::Codeblock(..)
+            | El::Details(..)
+            | El::Heading(..)
+            | El::Image(..)
+            | El::List(..)
+            | El::Table(..) => {
+                if paragraph_open {
+                    state.lclosel();
+                }
+                paragraph_open = false;
+            }
+            El::Item(..) => log::warning("List item at root level."),
+            El::Empty => {}
+        }
+
+        if !paragraph_open && paragraph_needed {
+            state.lopenl("p", empty);
+            paragraph_open = true;
+        }
+
+        if let Some(n) = handle_encryption_section(&mut state, &range[i..]) {
+            skip = n;
+        } else {
+            render(&mut state, node, false);
+        }
+        prev = Some(node);
+    }
+
+    if paragraph_open {
+        state.lclose();
+    }
+
+    html.content
+}
+
 pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Result<String, ()> {
     let Some(doc) = page.document() else {
         log::error(format!(
@@ -469,24 +568,9 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
 
     let empty = &HashMap::new();
 
-    state.open("html", empty);
-    state.lopenl("head", empty);
+    state.lopenl("html", empty);
+    render(&mut state, &header(page.title()), true);
 
-    state.open("title", empty);
-    render(&mut state, &Node::text(page.title()), false);
-    state.close();
-
-    let indent_by = state.stack.len();
-
-    state.lopenl("style", empty);
-    state.push_str(&indent(include_str!("res/style.css"), indent_by));
-    state.lclose();
-
-    state.lopenl("script", empty);
-    state.push_str(&indent(include_str!("res/decrypt.js"), indent_by));
-    state.lclose();
-
-    state.lclose();
     state.lopenl("body", empty);
 
     if config.nav_tree {
@@ -506,61 +590,8 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
         add_page_path(&mut state, page);
     }
 
-    let mut skip = 0;
-    let mut paragraph_open = false;
-    let mut prev: Option<&Node> = None;
-    for (i, node) in doc.nodes().iter().enumerate() {
-        if skip > 0 {
-            skip -= 1;
-            continue;
-        }
-
-        let mut paragraph_needed = false;
-        match node.el() {
-            El::Code(..) | El::Text(..) => {
-                paragraph_needed = true;
-
-                if paragraph_open {
-                    match prev {
-                        Some(n) if matches!(n.el(), El::Text(..)) => {
-                            state.html.lclosel();
-                            paragraph_open = false;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            El::Link(..) | El::Style(..) => {
-                paragraph_needed = true;
-            }
-            El::Span(..)
-            | El::Codeblock(..)
-            | El::Details(..)
-            | El::Heading(..)
-            | El::Image(..)
-            | El::List(..)
-            | El::Table(..) => {
-                if paragraph_open {
-                    state.html.lclosel();
-                }
-                paragraph_open = false;
-            }
-            El::Item(..) => log::warning("List item at root level."),
-            El::Empty => {}
-        }
-
-        if !paragraph_open && paragraph_needed {
-            state.html.lopenl("p", empty);
-            paragraph_open = true;
-        }
-
-        if let Some(n) = handle_encryption_section(&mut state, &doc.nodes()[i..]) {
-            skip = n;
-        } else {
-            render(&mut state, node, false);
-        }
-        prev = Some(node);
-    }
+    let content = render_root_range(&state, doc.nodes());
+    state.push_str(&content);
 
     html.lclose();
     html.lclose();
