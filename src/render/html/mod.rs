@@ -200,11 +200,20 @@ fn handle_empty_url(state: &RenderState, text: &str, ext: &str, url: &str) -> St
     url.to_string()
 }
 
-fn render_encrypted(state: &RenderState, pairs: &[(&Tag, &String)], nodes: &[Node]) -> Node {
+fn render_encrypted(
+    state: &RenderState,
+    pairs: &[(&Tag, &String)],
+    nodes: &[Node],
+    at_root: bool,
+) -> Node {
     const CSS_CLASS: &str = "secret";
     const SEP: &str = ";";
 
-    let plaintext = render_nodes_only(state.config, state.tree, state.page, nodes, true);
+    let plaintext = if at_root {
+        render_root_range(state, nodes, true)
+    } else {
+        render_nodes_only(state.config, state.tree, state.page, nodes, true)
+    };
     let mut tags = Vec::new();
     let mut nonces = Vec::new();
 
@@ -347,7 +356,7 @@ fn render_nodes(state: &mut RenderState, nodes: &[Node], skip_encryption: bool) 
             continue;
         }
 
-        if !skip_encryption && let Some(n) = handle_encryption_section(state, &nodes[i..]) {
+        if !skip_encryption && let Some(n) = handle_encryption_section(state, &nodes[i..], false) {
             skip = n;
         } else {
             render(state, node, skip_encryption);
@@ -423,14 +432,18 @@ fn encryption_pairs<'a>(state: &'a RenderState, node: &Node) -> Option<Vec<(&'a 
 fn handle_encryption_node(state: &mut RenderState, node: &Node) -> bool {
     if let Some(pairs) = encryption_pairs(state, node) {
         let nodes = slice::from_ref(node);
-        render(state, &render_encrypted(state, &pairs, nodes), true);
+        render(state, &render_encrypted(state, &pairs, nodes, false), true);
         true
     } else {
         false
     }
 }
 
-fn handle_encryption_section(state: &mut RenderState, nodes: &[Node]) -> Option<usize> {
+fn handle_encryption_section(
+    state: &mut RenderState,
+    nodes: &[Node],
+    at_root: bool,
+) -> Option<usize> {
     if let Some(node) = nodes.first()
         && let Some(pairs) = encryption_pairs(state, node)
     {
@@ -450,7 +463,7 @@ fn handle_encryption_section(state: &mut RenderState, nodes: &[Node]) -> Option<
 
         // If any of this nodes tags are password protected, render out an
         // encrypted node instead.
-        render(state, &render_encrypted(state, &pairs, nodes), false);
+        render(state, &render_encrypted(state, &pairs, nodes, at_root), false);
         Some(skip)
     } else {
         None
@@ -474,7 +487,7 @@ fn header(title: &str) -> Node {
     )
 }
 
-fn render_root_range(state: &RenderState, range: &[Node]) -> String {
+fn render_root_range(state: &RenderState, range: &[Node], skip_encryption: bool) -> String {
     let mut html = Html::new();
     html.indent_adjust = state.stack.len();
     let mut state = RenderState {
@@ -494,9 +507,14 @@ fn render_root_range(state: &RenderState, range: &[Node]) -> String {
             continue;
         }
 
+        if !skip_encryption && let Some(n) = handle_encryption_section(&mut state, &range[i..], true) {
+            skip = n;
+            continue;
+        }
+
         let mut paragraph_needed = false;
         match node.el() {
-            El::Code(..) | El::Text(..) => {
+            El::Text(..) => {
                 paragraph_needed = true;
 
                 if paragraph_open {
@@ -509,7 +527,7 @@ fn render_root_range(state: &RenderState, range: &[Node]) -> String {
                     }
                 }
             }
-            El::Link(..) | El::Style(..) => {
+            El::Code(..) | El::Link(..) | El::Style(..) => {
                 paragraph_needed = true;
             }
             El::Block(..)
@@ -534,11 +552,7 @@ fn render_root_range(state: &RenderState, range: &[Node]) -> String {
             paragraph_open = true;
         }
 
-        if let Some(n) = handle_encryption_section(&mut state, &range[i..]) {
-            skip = n;
-        } else {
-            render(&mut state, node, false);
-        }
+        render(&mut state, node, skip_encryption);
         prev = Some(node);
     }
 
@@ -590,7 +604,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
         add_page_path(&mut state, page);
     }
 
-    let content = render_root_range(&state, doc.nodes());
+    let content = render_root_range(&state, doc.nodes(), config.tag_passwords.is_empty());
     state.push_str(&content);
 
     html.lclose();
