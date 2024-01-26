@@ -1,8 +1,7 @@
 use crate::model::{Doc, Node, WikiPage, WikiTree};
 
-use super::CSS_CLASS_ATTR;
+use super::{CSS_CLASS_ATTR, CSS_ID_ATTR};
 
-const CSS_ID_ATTR: &str = "id";
 const CSS_CLASS_THIS_PAGE: &str = "nav-tree-selected";
 const CSS_CLASS_BULLET: &str = "nav-tree-bullet";
 const CSS_ID_NAV_TREE: &str = "nav-tree";

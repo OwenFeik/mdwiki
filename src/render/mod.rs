@@ -4,7 +4,7 @@ mod nav;
 #[cfg(test)]
 mod test;
 
-pub use self::html::{render_document, CSS_CLASS_ATTR};
+pub use self::html::{render_document, CSS_CLASS_ATTR, CSS_ID_ATTR};
 pub use self::nav::create_index;
 
 pub const INDEX_FILE: &str = "index.html";

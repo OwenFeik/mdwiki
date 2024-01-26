@@ -27,3 +27,6 @@ standard markdown that are supported are
     is required for headings. Currently the following tags have an effect:
     * `#dm` causes the element to be encrypted, requiring a password to decrypt.
 
+## TODO
+
+* Hide pages with relevant tags from nav tree.

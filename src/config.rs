@@ -31,7 +31,7 @@ pub struct Config {
 
     /// Passwords associated with tags. Including a password here will cause
     /// all nodes with the given tag to be AES encoded with the given password.
-    pub tag_passwords: HashMap<Tag, String>,
+    pub tag_keys: HashMap<Tag, String>,
 }
 
 impl Config {
@@ -43,7 +43,7 @@ impl Config {
             nav_tree: false,
             page_heading: false,
             add_breadcrumbs: false,
-            tag_passwords: HashMap::new(),
+            tag_keys: HashMap::new(),
         }
     }
 }
@@ -58,7 +58,7 @@ impl Default for Config {
             nav_tree: true,
             page_heading: false,
             add_breadcrumbs: true,
-            tag_passwords,
+            tag_keys: tag_passwords,
         }
     }
 }

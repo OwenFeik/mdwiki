@@ -30,6 +30,7 @@ h6 {
     position: absolute;
     left: var(--nav-tree-width);
     width: calc(100% - var(--nav-tree-width));
+    z-index: 0;
 }
 
 main {
@@ -61,12 +62,21 @@ a:visited {
     color: var(--a2);
 }
 
+#tag-keys-menu {
+    position: absolute;
+    right: 0;
+    padding-top: 6rem;
+    padding-right: 2rem;
+    z-index: 1;
+}
+
 #nav-tree {
     list-style: none;
     position: absolute;
     padding-top: 6rem;
     padding-left: 2rem;
     width: var(--nav-tree-width);
+    z-index: 1;
 }
 
 #nav-tree ul {

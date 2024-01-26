@@ -15,6 +15,7 @@ mod aes;
 mod test;
 
 pub const CSS_CLASS_ATTR: &str = "class";
+pub const CSS_ID_ATTR: &str = "id";
 const TABSIZE: usize = 2;
 
 struct Html {
@@ -417,7 +418,7 @@ fn encryption_pairs<'a>(state: &'a RenderState, node: &Node) -> Option<Vec<(&'a 
     } else {
         let pairs: Vec<(&Tag, &String)> = state
             .config
-            .tag_passwords
+            .tag_keys
             .iter()
             .filter(|(k, _)| node.tags().contains(k))
             .collect();
@@ -563,6 +564,27 @@ fn render_root_range(state: &RenderState, range: &[Node], skip_encryption: bool)
     html.content
 }
 
+fn make_tag_key_menu(config: &Config) -> Node {
+    const ID: &str = "tag-keys-menu";
+
+    let mut tag_entrys = Vec::new();
+    for tag in config.tag_keys.keys() {
+        tag_entrys.push(Node::item(vec![
+            Node::text(tag.as_ref()),
+            Node::inline("input", Vec::new()).with_attr("type", "password"),
+        ]));
+    }
+
+    Node::block(
+        "div",
+        vec![Node::details(
+            vec![Node::text("Keys")],
+            vec![Node::list(tag_entrys)],
+        )],
+    )
+    .with_attr(CSS_ID_ATTR, ID)
+}
+
 pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Result<String, ()> {
     let Some(doc) = page.document() else {
         log::error(format!(
@@ -591,6 +613,10 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
         render(&mut state, &super::nav::make_nav_tree(tree, page), false);
     }
 
+    if !config.tag_keys.is_empty() {
+        render(&mut state, &make_tag_key_menu(config), true);
+    }
+
     state.start("div");
     state.attr("id", "content");
     state.finish(empty);
@@ -604,7 +630,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
         add_page_path(&mut state, page);
     }
 
-    let content = render_root_range(&state, doc.nodes(), config.tag_passwords.is_empty());
+    let content = render_root_range(&state, doc.nodes(), config.tag_keys.is_empty());
     state.push_str(&content);
 
     html.lclose();
