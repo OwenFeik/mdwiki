@@ -6,7 +6,12 @@ use aes_gcm::{
 };
 use base64::Engine;
 
-use crate::log;
+use crate::{
+    log,
+    model::{Node, Tag},
+};
+
+use super::RenderState;
 
 fn warn(err: impl Display) {
     log::warning(err)

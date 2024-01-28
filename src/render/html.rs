@@ -7,18 +7,13 @@ use crate::{
     model::{Attrs, El, Node, Style, Tag, WikiPage, WikiTree},
 };
 
-use super::OUTPUT_EXT;
-
-mod aes;
-
-#[cfg(test)]
-mod test;
+use super::{encryption_pairs, RenderState, OUTPUT_EXT};
 
 pub const CSS_CLASS_ATTR: &str = "class";
 pub const CSS_ID_ATTR: &str = "id";
-const TABSIZE: usize = 2;
+pub const TABSIZE: usize = 2;
 
-struct Html {
+pub struct Html {
     content: String,
     stack: Vec<String>,
     just_closed: Option<String>,
@@ -26,7 +21,7 @@ struct Html {
 }
 
 impl Html {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             content: String::new(),
             stack: Vec::new(),
@@ -160,32 +155,11 @@ impl Html {
     }
 }
 
-struct RenderState<'a> {
-    tree: &'a WikiTree,
-    page: &'a WikiPage,
-    config: &'a Config,
-    html: &'a mut Html,
-}
-
-impl<'a> std::ops::Deref for RenderState<'a> {
-    type Target = Html;
-
-    fn deref(&self) -> &Self::Target {
-        self.html
-    }
-}
-
-impl<'a> std::ops::DerefMut for RenderState<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.html
-    }
-}
-
-fn escape(string: &str) -> String {
+pub fn escape(string: &str) -> String {
     string.replace('"', "&quot;")
 }
 
-fn indent(string: &str, by: usize) -> String {
+pub fn indent(string: &str, by: usize) -> String {
     let mut repl = String::from("\n");
     repl.push_str(&" ".repeat(by * TABSIZE));
     String::from(string.replace('\n', &repl).trim())
@@ -199,38 +173,6 @@ fn handle_empty_url(state: &RenderState, text: &str, ext: &str, url: &str) -> St
     }
 
     url.to_string()
-}
-
-fn render_encrypted(
-    state: &RenderState,
-    pairs: &[(&Tag, &String)],
-    nodes: &[Node],
-    at_root: bool,
-) -> Node {
-    const CSS_CLASS: &str = "secret";
-    const SEP: &str = ";";
-
-    let plaintext = if at_root {
-        render_root_range(state, nodes, true)
-    } else {
-        render_nodes_only(state.config, state.tree, state.page, nodes, true)
-    };
-    let mut tags = Vec::new();
-    let mut nonces = Vec::new();
-
-    let mut ciphertext = String::new();
-    for (tag, password) in pairs {
-        if let Ok((nonce, encrypted)) = aes::encrypt(&plaintext, password) {
-            tags.push(tag.as_ref());
-            nonces.push(nonce);
-            ciphertext = encrypted;
-        }
-    }
-
-    Node::span(vec![Node::text(&ciphertext)])
-        .with_class(CSS_CLASS)
-        .with_attr("tags", &tags.join(SEP))
-        .with_attr("nonces", &nonces.join(SEP))
 }
 
 fn render(state: &mut RenderState, node: &Node, skip_encryption: bool) {
@@ -349,6 +291,38 @@ fn render(state: &mut RenderState, node: &Node, skip_encryption: bool) {
     }
 }
 
+pub fn encrypt_nodes(
+    state: &RenderState,
+    pairs: &[(&Tag, &String)],
+    nodes: &[Node],
+    at_root: bool,
+) -> Node {
+    const CSS_CLASS: &str = "secret";
+    const SEP: &str = ";";
+
+    let plaintext = if at_root {
+        render_root_range(state, nodes, true)
+    } else {
+        render_nodes_only(state.config, state.tree, state.page, nodes, true)
+    };
+    let mut tags = Vec::new();
+    let mut nonces = Vec::new();
+
+    let mut ciphertext = String::new();
+    for (tag, password) in pairs {
+        if let Ok((nonce, encrypted)) = super::aes::encrypt(&plaintext, password) {
+            tags.push(tag.as_ref());
+            nonces.push(nonce);
+            ciphertext = encrypted;
+        }
+    }
+
+    Node::span(vec![Node::text(&ciphertext)])
+        .with_class(CSS_CLASS)
+        .with_attr("tags", &tags.join(SEP))
+        .with_attr("nonces", &nonces.join(SEP))
+}
+
 fn render_nodes(state: &mut RenderState, nodes: &[Node], skip_encryption: bool) {
     let mut skip = 0;
     for (i, node) in nodes.iter().enumerate() {
@@ -373,15 +347,11 @@ fn add_page_heading(state: &mut RenderState, page: &WikiPage) {
     );
 }
 
-fn add_page_path(state: &mut RenderState, page: &WikiPage) {
-    render(
-        state,
-        &super::nav::make_nav_breadcrumb(state.tree, page),
-        false,
-    );
+fn add_page_path(state: &mut RenderState) {
+    render(state, &super::nav::make_nav_breadcrumb(state), false);
 }
 
-fn render_nodes_only(
+pub fn render_nodes_only(
     config: &Config,
     tree: &WikiTree,
     page: &WikiPage,
@@ -412,28 +382,10 @@ pub fn render_node_only(config: &Config, tree: &WikiTree, page: &WikiPage, node:
     html.content.trim().to_string()
 }
 
-fn encryption_pairs<'a>(state: &'a RenderState, node: &Node) -> Option<Vec<(&'a Tag, &'a String)>> {
-    if node.tags().is_empty() {
-        None
-    } else {
-        let pairs: Vec<(&Tag, &String)> = state
-            .config
-            .tag_keys
-            .iter()
-            .filter(|(k, _)| node.tags().contains(k))
-            .collect();
-        if pairs.is_empty() {
-            None
-        } else {
-            Some(pairs)
-        }
-    }
-}
-
 fn handle_encryption_node(state: &mut RenderState, node: &Node) -> bool {
-    if let Some(pairs) = encryption_pairs(state, node) {
+    if let Some(pairs) = encryption_pairs(state, node.tags()) {
         let nodes = slice::from_ref(node);
-        render(state, &render_encrypted(state, &pairs, nodes, false), true);
+        render(state, &encrypt_nodes(state, &pairs, nodes, false), true);
         true
     } else {
         false
@@ -446,7 +398,7 @@ fn handle_encryption_section(
     at_root: bool,
 ) -> Option<usize> {
     if let Some(node) = nodes.first()
-        && let Some(pairs) = encryption_pairs(state, node)
+        && let Some(pairs) = encryption_pairs(state, node.tags())
     {
         let (skip, nodes) = if let El::Heading(nt, _) = node.el() {
             let idx = if let Some(next_heading_idx) = nodes[1..]
@@ -464,7 +416,7 @@ fn handle_encryption_section(
 
         // If any of this nodes tags are password protected, render out an
         // encrypted node instead.
-        render(state, &render_encrypted(state, &pairs, nodes, at_root), false);
+        render(state, &encrypt_nodes(state, &pairs, nodes, at_root), false);
         Some(skip)
     } else {
         None
@@ -508,7 +460,9 @@ fn render_root_range(state: &RenderState, range: &[Node], skip_encryption: bool)
             continue;
         }
 
-        if !skip_encryption && let Some(n) = handle_encryption_section(&mut state, &range[i..], true) {
+        if !skip_encryption
+            && let Some(n) = handle_encryption_section(&mut state, &range[i..], true)
+        {
             skip = n;
             continue;
         }
@@ -610,7 +564,8 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
     state.lopenl("body", empty);
 
     if config.nav_tree {
-        render(&mut state, &super::nav::make_nav_tree(tree, page), false);
+        let nav_tree = super::nav::make_nav_tree(&state);
+        render(&mut state, &nav_tree, false);
     }
 
     if !config.tag_keys.is_empty() {
@@ -627,7 +582,7 @@ pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Res
     }
 
     if config.add_breadcrumbs {
-        add_page_path(&mut state, page);
+        add_page_path(&mut state);
     }
 
     let content = render_root_range(&state, doc.nodes(), config.tag_keys.is_empty());
