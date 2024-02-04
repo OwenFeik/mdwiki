@@ -7,14 +7,17 @@ body {
 
     --fg1: #001514;
     --fg2: #A33B20;
-    --bg: #EADEDA;
+    --bg1: #EADEDA;
+    --bg2: #EBCEAF;
+    --bg3: #CE9D90;
     --a1: #F18F01;
     --a2: #5A352A;
     --trans: 0.3s;
     --nav-tree-width: 400px;
+    --title-size: 1.25rem;
 
     color: var(--fg1);
-    background-color: var(--bg);
+    background-color: var(--bg1);
 }
 
 h1,
@@ -54,6 +57,11 @@ img {
     width: 100%;
 }
 
+input {
+    border: none;
+    border-radius: 0.25em;
+}
+
 a:link {
     color: var(--a1);
 }
@@ -62,25 +70,53 @@ a:visited {
     color: var(--a2);
 }
 
-#tag-keys-menu {
+.floating-menu {
+    background-color: var(--bg2);
+    border-radius: 0.5rem;
+    padding: 1em;
     position: absolute;
+}
+
+#tag-keys-menu {
     right: 0;
-    padding-top: 6rem;
-    padding-right: 2rem;
+    margin-top: 5rem;
+    margin-right: 1rem;
     z-index: 1;
 }
 
-#nav-tree {
+#tag-keys-menu summary::marker {
+    font-size: var(--title-size);
+}
+
+#tag-keys-menu ul {
     list-style: none;
-    position: absolute;
-    padding-top: 6rem;
-    padding-left: 2rem;
-    width: var(--nav-tree-width);
+    margin-bottom: 0;
+    padding-left: 0;
+}
+
+.tag-keys-label {
+    color: var(--a1);
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.tag-keys-test {
+    display: none;
+}
+
+#nav-tree {
+    margin-top: 5rem;
+    margin-left: 1rem;
+    max-width: var(--nav-tree-width);
     z-index: 1;
 }
 
 #nav-tree ul {
     list-style: none;
+}
+
+#nav-tree>ul {
+    padding-left: 0;
 }
 
 .nav-tree-bullet {
@@ -110,4 +146,10 @@ a:visited {
 
 .secret {
     display: none;
+}
+
+.title {
+    color: var(--fg2);
+    font-size: var(--title-size);
+    font-weight: bold;
 }

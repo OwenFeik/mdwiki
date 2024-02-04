@@ -1,11 +1,9 @@
-use crate::model::{Doc, Node, WikiPage, WikiTree};
+use crate::{
+    model::{Doc, Node, WikiPage, WikiTree},
+    render::css::{floating_menu, title, with_class},
+};
 
-use super::{encryption_pairs, html::encrypt_nodes, RenderState, CSS_CLASS_ATTR, CSS_ID_ATTR};
-
-pub const CSS_CLASS_THIS_PAGE: &str = "nav-tree-selected";
-pub const CSS_CLASS_BULLET: &str = "nav-tree-bullet";
-pub const CSS_ID_NAV_TREE: &str = "nav-tree";
-const CSS_ID_NAV_BREADCRUMB: &str = "nav-breadcrumb";
+use super::{css::with_id, encryption_pairs, html::encrypt_nodes, RenderState};
 
 fn make_page_link<'a>(state: &'a RenderState, page: &'a WikiPage) -> Node {
     let node = Node::link(page.title(), page.url());
@@ -17,6 +15,9 @@ fn make_page_link<'a>(state: &'a RenderState, page: &'a WikiPage) -> Node {
 }
 
 fn make_nav_subtree<'a>(state: &'a RenderState, mut current: &'a WikiPage) -> Node {
+    const THIS_PAGE_CLASS: &str = "nav-tree-selected";
+    const CLASS_BULLET: &str = "nav-tree-bullet";
+
     if current.is_media() {
         return Node::empty();
     }
@@ -35,7 +36,7 @@ fn make_nav_subtree<'a>(state: &'a RenderState, mut current: &'a WikiPage) -> No
 
     let mut link = make_page_link(state, current);
     if current.id() == state.page.id() {
-        link.attr(CSS_CLASS_ATTR, CSS_CLASS_THIS_PAGE);
+        link = with_class(link, THIS_PAGE_CLASS);
     }
 
     if !children.is_empty() {
@@ -52,16 +53,15 @@ fn make_nav_subtree<'a>(state: &'a RenderState, mut current: &'a WikiPage) -> No
         }
         node
     } else if !current.is_dir() {
-        Node::item(vec![
-            Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
-            link,
-        ])
+        Node::item(vec![with_class(Node::span(Vec::new()), CLASS_BULLET), link])
     } else {
         Node::empty()
     }
 }
 
 pub fn make_nav_tree(state: &RenderState) -> Node {
+    const NAV_TREE_ID: &str = "nav-tree";
+
     let mut items = Vec::new();
     for child in state.tree.children(WikiTree::ROOT) {
         let subtree = make_nav_subtree(state, child);
@@ -69,7 +69,13 @@ pub fn make_nav_tree(state: &RenderState) -> Node {
             items.push(subtree);
         }
     }
-    Node::list(items).with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
+    with_id(
+        floating_menu(Node::div(vec![
+            title(Node::span(vec![Node::text("Pages")])),
+            Node::list(items),
+        ])),
+        NAV_TREE_ID,
+    )
 }
 
 fn next_breadcrumb<'a>(tree: &'a WikiTree, current: &'a WikiPage) -> Option<&'a WikiPage> {
@@ -82,6 +88,8 @@ fn next_breadcrumb<'a>(tree: &'a WikiTree, current: &'a WikiPage) -> Option<&'a 
 }
 
 pub fn make_nav_breadcrumb(state: &RenderState) -> Node {
+    const NAV_BREADCRUMB_ID: &str = "nav-breadcrumb";
+
     let mut nodes = Vec::new();
     let mut current = next_breadcrumb(state.tree, state.page);
     while let Some(entry) = current
@@ -96,7 +104,7 @@ pub fn make_nav_breadcrumb(state: &RenderState) -> Node {
     if nodes.is_empty() {
         Node::empty()
     } else {
-        Node::heading(3, nodes).with_attr("id", CSS_ID_NAV_BREADCRUMB)
+        with_id(Node::heading(3, nodes), NAV_BREADCRUMB_ID)
     }
 }
 

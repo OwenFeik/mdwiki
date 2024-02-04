@@ -23,7 +23,25 @@ const LOCAL_STORAGE_KEY = "tagKeys";
  * When the page loads, decrypt all elements for which we have keys available
  * in local storage.
  */
-window.addEventListener("load", () => decryptAvailable(loadKeys()));
+window.addEventListener("load", () => {
+    decryptAvailable(loadKeys());
+    setupEventListeners();
+});
+
+/**
+ * Set up all event listeners at page load.
+ */
+function setupEventListeners() {
+    // Update tag key inputs to save keys when entered.
+    document.getElementById("tag-keys-menu")
+        .querySelectorAll("li")
+        .forEach(entry => {
+            const tag = entry.querySelector(".tag-keys-label").innerText;
+            const key = entry.querySelector("input");
+
+            key.onchange = () => decryptAvailable(addKey(tag, key.value));
+        });
+}
 
 /**
  * Given a string, return an array containing the bytes of the string.
@@ -135,20 +153,55 @@ function htmlToElements(html) {
  * Given an element and a map from tag to encryption key, attempt to decrypt
  * the content of that element and replace the element by the HTML decrypted.
  * @param {HTMLElement} el Element to replace by it's decrypted content.
- * @param {object} keys Map from tag to decryption key. 
+ * @param {object} keys Map from tag to decryption key.
+ * @param {boolean} replace Whether to replace the element by the result. 
  * @return {Promise<boolean>} Whether the element was successfully updated.
  */
-async function decryptEl(el, keys) {
+async function decryptEl(el, keys, replace = true) {
     const cipherText = stringToBytes(atob(el.innerText));
     const tags = elTags(el);
     const nonces = el.getAttribute("nonces").split(SEP).reverse();
 
-    const plainText = await decryptChained(cipherText, tags, nonces, keys);
+    let plainText;
+    try {
+        plainText = await decryptChained(cipherText, tags, nonces, keys);
+    } catch {
+        plainText = null;
+    }
     if (plainText) {
-        el.parentNode.replaceChild(htmlToElements(plainText), el);
-        return true;
+        if (replace) {
+            return el.parentNode.replaceChild(htmlToElements(plainText), el);
+        } else {
+            return plainText;
+        }
     } else {
-        return false;
+        return replace ? false : null;
+    }
+}
+
+/**
+ * Test an entry from the tag keys menu to check that the key is correct,
+ * updating the input to reflect the result.
+ * 
+ * @param {HTMLElement} entry Entry to test key for.
+ * @param {object} keys Map from tag to tag key.
+ */
+async function testKey(entry, keys) {
+    const tag = entry.querySelector(".tag-keys-label").innerText;
+    const key = entry.querySelector("input");
+    const test = entry.querySelector(".tag-keys-test");
+    if (keys[tag] !== undefined) {
+        key.value = keys[tag];
+        const testResult = await decryptEl(test, keys, false);
+        if (testResult === "correct") {
+            key.disabled = true;
+            key.style.backgroundColor = "";
+            key.title = "Unlocked";
+        } else {
+            key.disabled = false;
+            key.style.backgroundColor = "var(--bg3)";
+            key.title = "Incorrect";
+        }
     }
 }
 
@@ -165,6 +218,7 @@ function loadKeys() {
  * have all required keys for.
  * @param {string} tag Tag to associate the given key with.
  * @param {string} key Key to use to decode data tagged with the given tag.
+ * @returns {object} Updated keys object.
  */
 function addKey(tag, key) {
     let keys = loadKeys();
@@ -189,10 +243,16 @@ function allKeysAvailable(tags, keys) {
 }
 
 /**
- * Decrypt all elements which have all keys available.
+ * Decrypt all elements which have all keys available. Also updates the tag key
+ * menu to reflect available and correct keys.
+ * 
  * @param {object} keys Map from tag to tag key.
  */
 function decryptAvailable(keys) {
+    document.getElementById("tag-keys-menu")
+        .querySelectorAll("li")
+        .forEach(entry => testKey(entry, keys));
+
     document.querySelectorAll(".secret").forEach(el => {
         if (allKeysAvailable(elTags(el), keys)) {
             decryptEl(el, keys);

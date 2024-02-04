@@ -5,12 +5,11 @@ use crate::{
     config::Config,
     log,
     model::{Attrs, El, Node, Style, Tag, WikiPage, WikiTree},
+    render::css::{floating_menu, with_class, with_id},
 };
 
 use super::{encryption_pairs, RenderState, OUTPUT_EXT};
 
-pub const CSS_CLASS_ATTR: &str = "class";
-pub const CSS_ID_ATTR: &str = "id";
 pub const TABSIZE: usize = 2;
 
 pub struct Html {
@@ -291,36 +290,40 @@ fn render(state: &mut RenderState, node: &Node, skip_encryption: bool) {
     }
 }
 
-pub fn encrypt_nodes(
-    state: &RenderState,
-    pairs: &[(&Tag, &String)],
-    nodes: &[Node],
-    at_root: bool,
-) -> Node {
+fn encrypt_text(pairs: &[(&Tag, &String)], plaintext: &str) -> Node {
     const CSS_CLASS: &str = "secret";
     const SEP: &str = ";";
 
-    let plaintext = if at_root {
-        render_root_range(state, nodes, true)
-    } else {
-        render_nodes_only(state.config, state.tree, state.page, nodes, true)
-    };
     let mut tags = Vec::new();
     let mut nonces = Vec::new();
 
     let mut ciphertext = String::new();
     for (tag, password) in pairs {
-        if let Ok((nonce, encrypted)) = super::aes::encrypt(&plaintext, password) {
+        if let Ok((nonce, encrypted)) = super::aes::encrypt(plaintext, password) {
             tags.push(tag.as_ref());
             nonces.push(nonce);
             ciphertext = encrypted;
         }
     }
 
-    Node::span(vec![Node::text(&ciphertext)])
-        .with_class(CSS_CLASS)
+    with_class(Node::span(vec![Node::text(&ciphertext)]), CSS_CLASS)
         .with_attr("tags", &tags.join(SEP))
         .with_attr("nonces", &nonces.join(SEP))
+}
+
+pub fn encrypt_nodes(
+    state: &RenderState,
+    pairs: &[(&Tag, &String)],
+    nodes: &[Node],
+    at_root: bool,
+) -> Node {
+    let plaintext = if at_root {
+        render_root_range(state, nodes, true)
+    } else {
+        render_nodes_only(state.config, state.tree, state.page, nodes, true)
+    };
+
+    encrypt_text(pairs, &plaintext)
 }
 
 fn render_nodes(state: &mut RenderState, nodes: &[Node], skip_encryption: bool) {
@@ -520,23 +523,29 @@ fn render_root_range(state: &RenderState, range: &[Node], skip_encryption: bool)
 
 fn make_tag_key_menu(config: &Config) -> Node {
     const ID: &str = "tag-keys-menu";
+    const TITLE_CLASS: &str = "title";
+    const LABEL_CLASS: &str = "tag-keys-label";
+    const TEST_CLASS: &str = "tag-keys-test";
 
     let mut tag_entrys = Vec::new();
-    for tag in config.tag_keys.keys() {
+    for (tag, key) in config.tag_keys.iter() {
         tag_entrys.push(Node::item(vec![
-            Node::text(tag.as_ref()),
-            Node::inline("input", Vec::new()).with_attr("type", "password"),
+            with_class(Node::span(vec![Node::text(tag.as_ref())]), LABEL_CLASS),
+            Node::inline("input", Vec::new())
+                .with_attr("type", "password")
+                .with_attr("autocomplete", "off"),
+            encrypt_text(&[(tag, key)], "correct").with_attr("class", TEST_CLASS),
         ]));
     }
 
-    Node::block(
-        "div",
-        vec![Node::details(
-            vec![Node::text("Keys")],
-            vec![Node::list(tag_entrys)],
+    let node = Node::div(vec![Node::details(
+        vec![with_class(
+            Node::span(vec![Node::text("Keys")]),
+            TITLE_CLASS,
         )],
-    )
-    .with_attr(CSS_ID_ATTR, ID)
+        vec![Node::list(tag_entrys)],
+    )]);
+    with_id(floating_menu(node), ID)
 }
 
 pub fn render_document(config: &Config, tree: &WikiTree, page: &WikiPage) -> Result<String, ()> {

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::render::capitalise;
 
-use super::{Doc, El, Tag};
+use super::{Doc, Tag};
 
 pub type Id = usize;
 
@@ -38,13 +38,10 @@ impl WikiPage {
 
     pub fn tags(&self) -> &[Tag] {
         if let Some(doc) = self.document() {
-            for node in doc.nodes() {
-                if let El::Heading(1, children) = node.el() {
-                    return node.tags();
-                }
-            }
+            doc.tags()
+        } else {
+            &[]
         }
-        &[]
     }
 
     pub fn url(&self) -> &str {

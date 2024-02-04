@@ -26,7 +26,3 @@ standard markdown that are supported are
     by requiring an alphabetic character immediately after the `#`. Thus a space
     is required for headings. Currently the following tags have an effect:
     * `#dm` causes the element to be encrypted, requiring a password to decrypt.
-
-## TODO
-
-* Hide pages with relevant tags from nav tree.

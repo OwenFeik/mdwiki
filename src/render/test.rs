@@ -1,3 +1,5 @@
+use test::css::{with_class, with_id};
+
 use crate::{
     config::Config,
     model::{Doc, Id, Node, Style, WikiTree},
@@ -288,25 +290,30 @@ fn test_nav_tree() {
             &mut Html::new(),
             &Config::none()
         )),
-        Node::list(vec![Node::item(vec![Node::details(
-            vec![Node::link("Index", "/index")],
-            vec![Node::list(vec![Node::item(vec![Node::details(
-                vec![Node::link("Country!", "/index/country").with_class(CSS_CLASS_THIS_PAGE)],
-                vec![Node::list(vec![
-                    Node::item(vec![
-                        Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
-                        Node::link("Citya", "/index/country/citya")
-                    ]),
-                    Node::item(vec![
-                        Node::span(Vec::new()).with_class(CSS_CLASS_BULLET),
-                        Node::link("Cityb", "/index/country/cityb")
-                    ]),
-                ])]
+        with_id(
+            Node::list(vec![Node::item(vec![Node::details(
+                vec![Node::link("Index", "/index")],
+                vec![Node::list(vec![Node::item(vec![Node::details(
+                    vec![with_class(
+                        Node::link("Country!", "/index/country"),
+                        "nav-tree-selected"
+                    )],
+                    vec![Node::list(vec![
+                        Node::item(vec![
+                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
+                            Node::link("Citya", "/index/country/citya")
+                        ]),
+                        Node::item(vec![
+                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
+                            Node::link("Cityb", "/index/country/cityb")
+                        ]),
+                    ])]
+                )
+                .with_attr("open", "")])])]
             )
-            .with_attr("open", "")])])]
+            .with_attr("open", "")])]),
+            "nav-tree"
         )
-        .with_attr("open", "")])])
-        .with_attr(CSS_ID_ATTR, CSS_ID_NAV_TREE)
     );
 }
 
@@ -320,14 +327,14 @@ fn test_nav_tree_render() {
     assert_eq_lines(
         render_node(&make_nav_tree(&make_state(&tree, page, &mut Html::new(), &Config::none()))),
         concat(&[
-            &format!("<ul {CSS_ID_ATTR}=\"{CSS_ID_NAV_TREE}\">"),
+            "<ul id=\"nav-tree\">",
             "  <li>",
             "    <details open=\"\">",
             "      <summary><a href=\"/index\">Index</a></summary>",
             "      <ul>",
             "        <li>",
             "          <details open=\"\">",
-            &format!("            <summary><a href=\"/index/page\" {CSS_CLASS_ATTR}=\"{CSS_CLASS_THIS_PAGE}\">Page Title</a></summary>"),
+            "            <summary><a href=\"/index/page\" class=\"nav-tree-selected\">Page Title</a></summary>",
             "            <ul>",
             "              <li><span class=\"nav-tree-bullet\"></span> <a href=\"/index/page/child\">Child</a></li>",
             "            </ul>",
@@ -365,13 +372,7 @@ fn test_index_replaces_dir() {
         render_node(&make_nav_tree(&make_state(&tree, idx, &mut Html::new(), &Config::none()))),
         concat(&[
             "<ul id=\"nav-tree\">",
-            &format!(
-                "  <li><span {}=\"{}\"></span> <a href=\"/dir/index.html\" {}=\"{}\">Index</a></li>",
-                CSS_CLASS_ATTR,
-                CSS_CLASS_BULLET,
-                CSS_CLASS_ATTR,
-                CSS_CLASS_THIS_PAGE
-            ),
+            "  <li><span class=\"nav-tree-bullet\"></span> <a href=\"/dir/index.html\" class=\"nav-tree-selected\">Index</a></li>",
             "</ul>"
         ])
     );
