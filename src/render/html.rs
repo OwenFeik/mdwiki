@@ -534,6 +534,7 @@ fn make_tag_key_menu(config: &Config) -> Node {
             Node::inline("input", Vec::new())
                 .with_attr("type", "password")
                 .with_attr("autocomplete", "off"),
+            Node::inline("button", vec![Node::text("Clear")]),
             encrypt_text(&[(tag, key)], "correct").with_attr("class", TEST_CLASS),
         ]));
     }

@@ -15,6 +15,7 @@ body {
     --trans: 0.3s;
     --nav-tree-width: 400px;
     --title-size: 1.25rem;
+    --inline-border-radius: 0.25rem;
 
     color: var(--fg1);
     background-color: var(--bg1);
@@ -59,7 +60,15 @@ img {
 
 input {
     border: none;
-    border-radius: 0.25em;
+    border-radius: var(--inline-border-radius);
+}
+
+button {
+    background-color: var(--bg3);
+    border: 2px solid var(--fg2);
+    border-radius: var(--inline-border-radius);
+    color: var(--fg1);
+    font-weight: 500;
 }
 
 a:link {

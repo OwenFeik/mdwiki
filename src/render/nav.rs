@@ -5,8 +5,11 @@ use crate::{
 
 use super::{css::with_id, encryption_pairs, html::encrypt_nodes, RenderState};
 
-fn make_page_link<'a>(state: &'a RenderState, page: &'a WikiPage) -> Node {
-    let node = Node::link(page.title(), page.url());
+fn make_page_link(page: &WikiPage) -> Node {
+    Node::link(page.title(), page.url())
+}
+
+fn page_encryption<'a>(state: &'a RenderState, page: &'a WikiPage, node: Node) -> Node {
     if let Some(pairs) = encryption_pairs(state, page.tags()) {
         encrypt_nodes(state, &pairs, &[node], false)
     } else {
@@ -34,12 +37,12 @@ fn make_nav_subtree<'a>(state: &'a RenderState, mut current: &'a WikiPage) -> No
         }
     }
 
-    let mut link = make_page_link(state, current);
+    let mut link = make_page_link(current);
     if current.id() == state.page.id() {
         link = with_class(link, THIS_PAGE_CLASS);
     }
 
-    if !children.is_empty() {
+    let node = if !children.is_empty() {
         let mut node = Node::details(vec![link], vec![Node::list(children)]);
 
         if state.page.is_descendent_of(current.id())
@@ -56,7 +59,9 @@ fn make_nav_subtree<'a>(state: &'a RenderState, mut current: &'a WikiPage) -> No
         Node::item(vec![with_class(Node::span(Vec::new()), CLASS_BULLET), link])
     } else {
         Node::empty()
-    }
+    };
+
+    page_encryption(state, current, node)
 }
 
 pub fn make_nav_tree(state: &RenderState) -> Node {
@@ -95,8 +100,8 @@ pub fn make_nav_breadcrumb(state: &RenderState) -> Node {
     while let Some(entry) = current
         && !entry.is_root()
     {
-        nodes.push(Node::text("/"));
-        nodes.push(make_page_link(state, entry));
+        let node = Node::span(vec![Node::text("/"), make_page_link(entry)]);
+        nodes.push(page_encryption(state, entry, node));
         current = next_breadcrumb(state.tree, entry);
     }
     nodes.reverse();

@@ -38,8 +38,14 @@ function setupEventListeners() {
         .forEach(entry => {
             const tag = entry.querySelector(".tag-keys-label").innerText;
             const key = entry.querySelector("input");
+            const button = entry.querySelector("button");
 
             key.onchange = () => decryptAvailable(addKey(tag, key.value));
+            button.onclick = () => {
+                removeKey(tag);
+                key.value = "";
+                key.disabled = false;
+            };
         });
 }
 
@@ -187,13 +193,15 @@ async function decryptEl(el, keys, replace = true) {
  * @param {object} keys Map from tag to tag key.
  */
 async function testKey(entry, keys) {
+    const TEST_VALUE = "correct";
+
     const tag = entry.querySelector(".tag-keys-label").innerText;
     const key = entry.querySelector("input");
     const test = entry.querySelector(".tag-keys-test");
     if (keys[tag] !== undefined) {
         key.value = keys[tag];
         const testResult = await decryptEl(test, keys, false);
-        if (testResult === "correct") {
+        if (testResult === TEST_VALUE) {
             key.disabled = true;
             key.style.backgroundColor = "";
             key.title = "Unlocked";
@@ -223,6 +231,18 @@ function loadKeys() {
 function addKey(tag, key) {
     let keys = loadKeys();
     keys[tag] = key;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(keys));
+    return keys;
+}
+
+/**
+ * Remove key for the given tag, if present.
+ * @param {tag} tag Tag to delete associated key for.
+ * @returns Updated tag key map.
+ */
+function removeKey(tag) {
+    let keys = loadKeys();
+    delete keys[tag];
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(keys));
     return keys;
 }
