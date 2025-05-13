@@ -8,7 +8,7 @@ use crate::{
     render::css::{floating_menu, with_class, with_id},
 };
 
-use super::{encryption_pairs, RenderState, OUTPUT_EXT};
+use super::{OUTPUT_EXT, RenderState, encryption_pairs};
 
 pub const TABSIZE: usize = 2;
 
@@ -334,7 +334,9 @@ fn render_nodes(state: &mut RenderState, nodes: &[Node], skip_encryption: bool) 
             continue;
         }
 
-        if !skip_encryption && let Some(n) = handle_encryption_section(state, &nodes[i..], false) {
+        if skip_encryption {
+            render(state, node, skip_encryption);
+        } else if let Some(n) = handle_encryption_section(state, &nodes[i..], false) {
             skip = n;
         } else {
             render(state, node, skip_encryption);
@@ -400,30 +402,26 @@ fn handle_encryption_section(
     nodes: &[Node],
     at_root: bool,
 ) -> Option<usize> {
-    if let Some(node) = nodes.first()
-        && let Some(pairs) = encryption_pairs(state, node.tags())
-    {
-        let (skip, nodes) = if let El::Heading(nt, _) = node.el() {
-            let idx = if let Some(next_heading_idx) = nodes[1..]
-                .iter()
-                .position(|n| matches!(n.el(), El::Heading(t, _) if *nt == *t))
-            {
-                next_heading_idx
-            } else {
-                nodes.len() - 1
-            };
-            (idx, &nodes[..idx])
+    let node = nodes.first()?;
+    let pairs = encryption_pairs(state, node.tags())?;
+    let (skip, nodes) = if let El::Heading(nt, _) = node.el() {
+        let idx = if let Some(next_heading_idx) = nodes[1..]
+            .iter()
+            .position(|n| matches!(n.el(), El::Heading(t, _) if *nt == *t))
+        {
+            next_heading_idx
         } else {
-            (0, &nodes[..1])
+            nodes.len() - 1
         };
-
-        // If any of this nodes tags are password protected, render out an
-        // encrypted node instead.
-        render(state, &encrypt_nodes(state, &pairs, nodes, at_root), false);
-        Some(skip)
+        (idx, &nodes[..idx])
     } else {
-        None
-    }
+        (0, &nodes[..1])
+    };
+
+    // If any of this nodes tags are password protected, render out an
+    // encrypted node instead.
+    render(state, &encrypt_nodes(state, &pairs, nodes, at_root), false);
+    Some(skip)
 }
 
 fn header(title: &str) -> Node {
@@ -463,11 +461,11 @@ fn render_root_range(state: &RenderState, range: &[Node], skip_encryption: bool)
             continue;
         }
 
-        if !skip_encryption
-            && let Some(n) = handle_encryption_section(&mut state, &range[i..], true)
-        {
-            skip = n;
-            continue;
+        if !skip_encryption {
+            if let Some(n) = handle_encryption_section(&mut state, &range[i..], true) {
+                skip = n;
+                continue;
+            }
         }
 
         let mut paragraph_needed = false;

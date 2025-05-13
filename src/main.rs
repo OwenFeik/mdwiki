@@ -1,5 +1,3 @@
-#![feature(anonymous_lifetime_in_impl_trait)]
-#![feature(let_chains)]
 #![feature(pattern)]
 
 use std::{

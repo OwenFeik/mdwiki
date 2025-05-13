@@ -228,7 +228,7 @@ impl WikiTree {
             .and_then(|p| self.find_link_target(title, ext, p))
     }
 
-    #[cfg(debug)]
+    #[cfg(test)]
     fn print_subtree(&self, node: &WikiPage, indent: usize) {
         println!("{}{}", "  ".repeat(indent), node.filename());
         for child in self.children(node.id()) {
@@ -236,7 +236,7 @@ impl WikiTree {
         }
     }
 
-    #[cfg(debug)]
+    #[cfg(test)]
     pub fn print(&self) {
         self.print_subtree(self.get(Self::ROOT).unwrap(), 0);
     }

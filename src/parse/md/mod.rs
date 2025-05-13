@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use std::str::pattern::Pattern;
-
-use crate::model::{Doc, El, Node, Style, Tag, HEADING_MAX_LEVEL};
+use crate::model::{Doc, El, HEADING_MAX_LEVEL, Node, Style, Tag};
 
 #[cfg(test)]
 mod test;
@@ -20,11 +18,7 @@ fn is_empty(input: &str) -> bool {
 }
 
 fn drop_n(input: &str, n: usize) -> &str {
-    if input.len() <= n {
-        ""
-    } else {
-        &input[n..]
-    }
+    if input.len() <= n { "" } else { &input[n..] }
 }
 
 fn drop_first(input: &str) -> &str {
@@ -82,7 +76,7 @@ fn second_char_matches(input: &str, pred: impl Fn(char) -> bool) -> bool {
 
 fn consume<'a, P>(input: &'a str, condition: P) -> (&'a str, &'a str)
 where
-    P: Pattern<'a>,
+    P: std::str::pattern::Pattern,
 {
     if let Some(i) = input.find(condition) {
         (&input[i..], &input[0..i])

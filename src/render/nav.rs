@@ -3,7 +3,7 @@ use crate::{
     render::css::{floating_menu, title, with_class},
 };
 
-use super::{css::with_id, encryption_pairs, html::encrypt_nodes, RenderState};
+use super::{RenderState, css::with_id, encryption_pairs, html::encrypt_nodes};
 
 fn make_page_link(page: &WikiPage) -> Node {
     Node::link(page.title(), page.url())
@@ -97,9 +97,11 @@ pub fn make_nav_breadcrumb(state: &RenderState) -> Node {
 
     let mut nodes = Vec::new();
     let mut current = next_breadcrumb(state.tree, state.page);
-    while let Some(entry) = current
-        && !entry.is_root()
-    {
+    while let Some(entry) = current {
+        if entry.is_root() {
+            break;
+        }
+
         let node = Node::span(vec![Node::text("/"), make_page_link(entry)]);
         nodes.push(page_encryption(state, entry, node));
         current = next_breadcrumb(state.tree, entry);
