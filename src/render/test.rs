@@ -421,3 +421,24 @@ fn test_media_excluded_from_nav_tree() {
     )));
     assert!(!html.contains("image"));
 }
+
+#[test]
+fn test_breadcrumbs() {
+    let mut tree = WikiTree::new();
+    let a = tree.add_dir(WikiTree::ROOT, "fst");
+    let b = tree.add_dir(a, "snd");
+    let c = tree.add_dir(b, "thd");
+    assert_eq!(
+        make_nav_breadcrumb(&make_state(&tree, c, &mut Html::new(), &Config::none())),
+        with_id(
+            Node::heading(
+                3,
+                vec![
+                    Node::span(vec![Node::link("Fst", "/fst"), Node::text("/")]),
+                    Node::span(vec![Node::link("Snd", "/fst/snd"), Node::text("/")]),
+                ]
+            ),
+            "nav-breadcrumb"
+        )
+    );
+}

@@ -45,7 +45,9 @@ impl Html {
     }
 
     fn finish(&mut self, attrs: &Attrs) {
-        attrs.iter().for_each(|(k, v)| self.attr(k, v));
+        let mut sorted: Vec<(&String, &String)> = attrs.iter().collect();
+        sorted.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+        sorted.into_iter().for_each(|(k, v)| self.attr(k, v));
         self.push('>');
     }
 

@@ -102,7 +102,7 @@ pub fn make_nav_breadcrumb(state: &RenderState) -> Node {
             break;
         }
 
-        let node = Node::span(vec![Node::text("/"), make_page_link(entry)]);
+        let node = Node::span(vec![make_page_link(entry), Node::text("/")]);
         nodes.push(page_encryption(state, entry, node));
         current = next_breadcrumb(state.tree, entry);
     }
