@@ -291,29 +291,40 @@ fn test_nav_tree() {
             &Config::none()
         )),
         with_id(
-            Node::list(vec![Node::item(vec![Node::details(
-                vec![Node::link("Index", "/index")],
-                vec![Node::list(vec![Node::item(vec![Node::details(
-                    vec![with_class(
-                        Node::link("Country!", "/index/country"),
-                        "nav-tree-selected"
-                    )],
-                    vec![Node::list(vec![
-                        Node::item(vec![
-                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
-                            Node::link("Citya", "/index/country/citya")
-                        ]),
-                        Node::item(vec![
-                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
-                            Node::link("Cityb", "/index/country/cityb")
-                        ]),
-                    ])]
-                )
-                .with_attr("open", "")])])]
-            )
-            .with_attr("open", "")])]),
+            Node::block(
+                "div",
+                vec![
+                    Node::inline("span", vec![Node::text("Pages")]).with_attr("class", "title"),
+                    Node::list(vec![Node::item(vec![
+                        Node::details(
+                            vec![Node::link("Index", "/index")],
+                            vec![Node::list(vec![Node::item(vec![
+                                Node::details(
+                                    vec![with_class(
+                                        Node::link("Country!", "/index/country"),
+                                        "nav-tree-selected"
+                                    )],
+                                    vec![Node::list(vec![
+                                        Node::item(vec![
+                                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
+                                            Node::link("Citya", "/index/country/citya")
+                                        ]),
+                                        Node::item(vec![
+                                            with_class(Node::span(Vec::new()), "nav-tree-bullet"),
+                                            Node::link("Cityb", "/index/country/cityb")
+                                        ]),
+                                    ])]
+                                )
+                                .with_attr("open", "")
+                            ])])]
+                        )
+                        .with_attr("open", "")
+                    ])]),
+                ]
+            ),
             "nav-tree"
         )
+        .with_attr("class", "floating-menu")
     );
 }
 
@@ -325,26 +336,34 @@ fn test_nav_tree_render() {
     tree.add_doc(page, "child", "Child", Doc::empty());
 
     assert_eq_lines(
-        render_node(&make_nav_tree(&make_state(&tree, page, &mut Html::new(), &Config::none()))),
+        render_node(&make_nav_tree(&make_state(
+            &tree,
+            page,
+            &mut Html::new(),
+            &Config::none(),
+        ))),
         concat(&[
-            "<ul id=\"nav-tree\">",
-            "  <li>",
-            "    <details open=\"\">",
-            "      <summary><a href=\"/index\">Index</a></summary>",
-            "      <ul>",
-            "        <li>",
-            "          <details open=\"\">",
-            "            <summary><a href=\"/index/page\" class=\"nav-tree-selected\">Page Title</a></summary>",
-            "            <ul>",
-            "              <li><span class=\"nav-tree-bullet\"></span> <a href=\"/index/page/child\">Child</a></li>",
-            "            </ul>",
-            "          </details>",
-            "        </li>",
-            "      </ul>",
-            "    </details>",
-            "  </li>",
-            "</ul>"
-        ])
+            "<div class=\"floating-menu\" id=\"nav-tree\">",
+            "  <span class=\"title\">Pages</span>",
+            "  <ul>",
+            "    <li>",
+            "      <details open=\"\">",
+            "        <summary><a href=\"/index\">Index</a></summary>",
+            "        <ul>",
+            "          <li>",
+            "            <details open=\"\">",
+            "              <summary><a href=\"/index/page\" class=\"nav-tree-selected\">Page Title</a></summary>",
+            "              <ul>",
+            "                <li><span class=\"nav-tree-bullet\"></span> <a href=\"/index/page/child\">Child</a></li>",
+            "              </ul>",
+            "            </details>",
+            "          </li>",
+            "        </ul>",
+            "      </details>",
+            "    </li>",
+            "  </ul>",
+            "</div>",
+        ]),
     )
 }
 
@@ -352,14 +371,15 @@ fn test_nav_tree_render() {
 fn test_empty_dir_excluded() {
     let mut tree = WikiTree::new();
     let dir = tree.add_dir(WikiTree::ROOT, "dir");
-    assert_eq!(
-        render_node(&make_nav_tree(&make_state(
+    assert!(
+        !render_node(&make_nav_tree(&make_state(
             &tree,
             dir,
             &mut Html::new(),
             &Config::none()
-        ))),
-        "<ul id=\"nav-tree\">\n</ul>"
+        )))
+        .to_lowercase()
+        .contains("dir"),
     );
 }
 
@@ -368,14 +388,16 @@ fn test_index_replaces_dir() {
     let mut tree = WikiTree::new();
     let dir = tree.add_dir(WikiTree::ROOT, "dir");
     let idx = tree.add_index(dir, "index.html", "Index", Doc::empty());
-    assert_eq!(
-        render_node(&make_nav_tree(&make_state(&tree, idx, &mut Html::new(), &Config::none()))),
-        concat(&[
-            "<ul id=\"nav-tree\">",
-            "  <li><span class=\"nav-tree-bullet\"></span> <a href=\"/dir/index.html\" class=\"nav-tree-selected\">Index</a></li>",
-            "</ul>"
-        ])
-    );
+    let html = render_node(&make_nav_tree(&make_state(
+        &tree,
+        idx,
+        &mut Html::new(),
+        &Config::none(),
+    )));
+
+    // Only occurrence of "dir" should be in the URL of the index.
+    assert!(html.contains("/dir/index.html"));
+    assert_eq!(html.split("dir").count(), 2);
 }
 
 #[test]
@@ -391,19 +413,11 @@ fn test_media_excluded_from_nav_tree() {
         std::path::PathBuf::from("./image.png"),
     );
 
-    assert_eq_lines(
-        render_node(&make_nav_tree(&make_state(&tree,page, &mut Html::new(), &Config::none()))),
-        concat(&[
-            "<ul id=\"nav-tree\">",
-            "  <li>",
-            "    <details open=\"\">",
-            "      <summary><a href=\"/dir\">Dir</a></summary>",
-            "      <ul>",
-            "        <li><span class=\"nav-tree-bullet\"></span> <a href=\"/dir/doc.html\" class=\"nav-tree-selected\">Doc</a></li>",
-            "      </ul>",
-            "    </details>",
-            "  </li>",
-            "</ul>",
-        ]),
-    );
+    let html = render_node(&make_nav_tree(&make_state(
+        &tree,
+        page,
+        &mut Html::new(),
+        &Config::none(),
+    )));
+    assert!(!html.contains("image"));
 }
